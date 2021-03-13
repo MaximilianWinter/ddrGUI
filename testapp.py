@@ -5,9 +5,6 @@ Created on Thu Mar 11 18:11:16 2021
 @author: mWinter
 """
 from remi import gui, App, start
-from MatplotImage import MatplotImage
-import numpy as np
-import matplotlib.pyplot as plt
 from CustomWidgets import CameraView, TimelinePlot, SimplePlotWidget, FloatingPanesContainer
         
         
@@ -16,11 +13,11 @@ class MyApp(App):
     def __init__(self, *args):
         self.config = {'CameraView': {'atomroi': {'x': 100, 'y': 100, 'w': 100, 'h': 100},
                                       'refroi': {'x': 200, 'y': 100, 'w': 100, 'h': 100},
-                                      'mpi_x_check': True,
-                                      'mpi_y_check': True,
+                                      'mpi_check': True,
+                                      'x': 0,
+                                      'y': 30,
                                       'vmin': 0,
                                       'vmax': 1},
-                       'TimeLinePlot': {},
                        'Simple Plot': {'mpi_check': True,
                                        'x': 0,
                                        'y': 680}}
@@ -43,9 +40,6 @@ class MyApp(App):
         # define content
         camview = CameraView(self, 'CameraView')
         view.append(camview.view)
-        
-        timelineplot = TimelinePlot(self, 'TimeLinePlot')
-        view.append(timelineplot.view)
         
         simpleplot = SimplePlotWidget(self, 'Simple Plot')
         view.append(simpleplot.view)

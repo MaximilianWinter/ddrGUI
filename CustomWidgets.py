@@ -13,7 +13,7 @@ from remi import gui
 from MatplotImage import MatplotImage
 import numpy as np
 import matplotlib.pyplot as plt
-
+    
 class ResizeHelper(gui.Widget, gui.EventSource):
     EVENT_ONDRAG = "on_drag"
 
@@ -301,7 +301,7 @@ class CameraView(gui.Widget):
     """
     
     def __init__(self, master, name, **kwargs):
-        super(CameraView, self).__init__(style={'width': '650px', 'height': '650px', 'background-color': 'white', 'position':'absolute', 'border': '2px solid grey'}, **kwargs)
+        super(CameraView, self).__init__(style={'width': '550px', 'height': '550px', 'background-color': 'white', 'position':'absolute', 'border': '2px solid grey'}, **kwargs)
         
         self.master = master
         self.name = name
@@ -316,39 +316,16 @@ class CameraView(gui.Widget):
         self.mpi_roi = MatplotImageROI(self.variables, width = '550px', height = '550px', margin='0px')
         self.mpi_roi.style['background-color'] = 'white'
         
-        
-        self.mpi_x = MatplotImage(figsize=(6,1.5))
-        self.ax_x = self.mpi_x.fig.add_subplot(1,1,1)
-        self.mpi_x.redraw()
-        
-        self.mpi_y = MatplotImage(figsize=(1.5,6))
-        self.ax_y = self.mpi_y.fig.add_subplot(1,1,1)
-        self.mpi_y.redraw()
-        
         # add widgets to container
         self.add_child('mpi_roi', self.mpi_roi)
-        self.add_child('mpi_y', self.mpi_y)
-        self.add_child('mpi_x', self.mpi_x)
-
-        # set children's position
-        self.children['mpi_y'].style['position'] = 'absolute'
-        self.children['mpi_y'].style['top'] = '50px'
-        
-        self.children['mpi_x'].style['position'] = 'absolute'
-        self.children['mpi_x'].style['left'] = '120px'
-        self.children['mpi_x'].style['top'] = '500px'
         
         self.children['mpi_roi'].style['position'] = 'absolute'
-        self.children['mpi_roi'].style['left'] = '100px'
     
     def view_clicked(self, widget):
         self.view_dialog = gui.GenericDialog(title=self.name + 'View', message='Click Ok to transfer content to main page', width='500px')
         
-        self.mpi_x_check = gui.CheckBox(self.variables['mpi_x_check'], width=200, height=30)
-        self.view_dialog.add_field_with_label('mpi_x_check', 'Plot x-axis', self.mpi_x_check)
-        
-        self.mpi_y_check = gui.CheckBox(self.variables['mpi_y_check'], width=200, height=30)
-        self.view_dialog.add_field_with_label('mpi_y_check', 'Plot y-axis', self.mpi_y_check)
+        self.mpi_check = gui.CheckBox(self.variables['mpi_check'], width=200, height=30)
+        self.view_dialog.add_field_with_label('mpi_check', 'Visible', self.mpi_check)
         
         self.vmin_spinbox = gui.SpinBox(default_value=self.variables['vmin'], min_value=0, max_value=1, step=0.05, width=200, height=20)
         self.view_dialog.add_field_with_label('vmin_spinbox', 'Vmin', self.vmin_spinbox)
@@ -360,28 +337,23 @@ class CameraView(gui.Widget):
         self.view_dialog.show(self.master)
         
     def update_view(self, widget):
-        self.variables['mpi_x_check'] = self.mpi_x_check.get_value()
+        self.variables['mpi_check'] = self.mpi_check.get_value()
+        self.variables['x'] = gui.from_pix(self.style['left'])
+        self.variables['y'] = gui.from_pix(self.style['top'])
         
-        if self.variables['mpi_x_check']:
-            self.add_child('mpi_x', self.mpi_x)
-        else:
-            self.remove_child(self.mpi_x)
-            
-        self.variables['mpi_y_check'] = self.mpi_y_check.get_value()
-        
-        if self.variables['mpi_y_check']:
-            self.add_child('mpi_y', self.mpi_y)
-        else:
-            self.remove_child(self.mpi_y)
-            
         self.variables['vmin'] = self.vmin_spinbox.get_value()
         self.variables['vmax'] = self.vmax_spinbox.get_value()
         
         self.mpi_roi.update_plot()
         
+        if self.variables['mpi_check']:
+            self.master.main_container.add_pane(self, self.variables['x'],self.variables['y'])
+        else:
+            self.master.main_container.remove_pane(self)
+        
 class SimplePlotWidget(gui.Widget):
     
-    def __init__(self, master, name, figsize=(10,3), style={'width': '1100px', 'height': '350px', 'background-color': 'blue', 'position':'absolute', 'border': '2px solid grey'}, **kwargs):
+    def __init__(self, master, name, figsize=(10,3), style={'width': '1100px', 'height': '300px', 'background-color': 'blue', 'position':'absolute', 'border': '2px solid grey'}, **kwargs):
         super(SimplePlotWidget, self).__init__(style=style, **kwargs)
         self.master = master
         self.name = name
@@ -392,7 +364,7 @@ class SimplePlotWidget(gui.Widget):
         self.view.onclick.do(self.view_clicked)
         
         # Define widget content
-        self.mpi = MatplotImage(figsize=figsize)
+        self.mpi = MatplotImage(figsize=figsize, width = style['width'], height = style['height'], margin='0px')
         self.ax = self.mpi.fig.add_subplot(1,1,1)
         self.mpi.redraw()
 
