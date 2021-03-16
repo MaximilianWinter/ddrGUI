@@ -21,7 +21,6 @@ class MatplotImage(gui.Image):
         self._buflock = threading.Lock()
 
         self.fig = Figure(figsize=figsize)
-        self.ax = self.fig.add_subplot(111)
 
         self.redraw()
 
