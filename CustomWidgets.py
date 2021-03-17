@@ -15,6 +15,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import datetime
 import os
+from backend import ProcessingFilesBackEnd
     
 class ResizeHelper(gui.Widget, gui.EventSource):
     EVENT_ONDRAG = "on_drag"
@@ -180,13 +181,16 @@ class FloatingPanesContainer(gui.Container):
         self.append(self.resizeHelper)
         self.append(self.dragHelper)
 
-    def add_pane(self, pane, x, y):
+    def add_pane(self, pane, x, y, key = None): # add key
         pane.style['left'] = gui.to_pix(x)
         pane.style['top'] = gui.to_pix(y)
         pane.onclick.do(self.on_pane_selection)
         pane.style['position'] = 'absolute'
         
-        self.append(pane)
+        if key is None:
+            self.append(pane)
+        else:
+            self.append(pane, key)
         self.on_pane_selection(pane)
     
     def remove_pane(self, pane):
@@ -296,6 +300,36 @@ class MatplotImageROI(FloatingPanesContainer):
         self.cbar.remove()
         self.cbar = plt.colorbar(self.im, ax=self.ax_im)
         self.mpi_im.redraw()
+        
+    def get_rois(self):
+        return self.get_roi_from_panel(self.atomroi), self.get_roi_from_panel(self.refroi)
+        
+    def get_roi_from_panel(self, panel):
+        """
+        works if ax is used with imshow
+        
+        returns x, y, w, h (all ints, in data coordinates)
+        
+        :                +------------------+
+        :                |                  |
+        :              height               |
+        :                |                  |
+        :               (xy)---- width -----+
+        
+        """
+        
+        fig_w, fig_h = self.mpi_im.fig.canvas.get_width_height()
+        
+        w, h = gui.from_pix(panel.style['width']), gui.from_pix(panel.style['height'])
+        x, y = gui.from_pix(panel.style['left']), fig_h - (gui.from_pix(panel.style['top']) + h)
+        
+        x0, y0 = self.ax_im.transData.transform((0, 0))
+        inv = self.ax_im.transData.inverted()
+        
+        roi = [int(i) for i in inv.transform([x, y, w+x0, h+y0])]
+        roi[-1] *= -1
+        
+        return roi
         
 
 class CameraView(gui.Widget):
@@ -458,9 +492,10 @@ class SimplePlotWidget(gui.Widget):
         self.mpi.redraw()
         
 DATA_DIR = '.'
-class ProcessingFiles():
+class ProcessingFiles(ProcessingFilesBackEnd):
     
     def __init__(self, master, name):
+        super(ProcessingFiles, self).__init__()
         self.master = master
         self.name = name
         self.variables = self.master.config[name]
@@ -469,12 +504,42 @@ class ProcessingFiles():
         self.directory = DirectoryWidget(self.master, 'Directory')        
         self.fits = FitsWidget(self.master, 'Fits')
         self.settings.append([self.directory.settings, self.fits.settings])
-
-    def do_processing(self):
-        # while loop
-        pass
-                
         
+        self.AN = AtomNumberWidget()
+        self.T = TemperatureWidget()
+        
+        self.running = False
+        
+    def run(self):
+        self.fileLists = []
+        for directory in self.directory.directories:
+            self.fileLists.append(dict([(i, os.path.getmtime(os.path.join(directory, i))) \
+                 for i in os.listdir(directory) if i.endswith('.hid')]))
+                
+        while(self.running):
+            atomroi, refroi = self.master.main_container.get_child('Camera View').mpi_roi.get_rois()
+            self.do_processing(self.directory.directories, self.fileLists, atomroi, refroi, AN_func=self.AN.func, T_func=self.T.func)
+            
+                    
+    def update_plots(self):
+        for ID in self.master.config['Camera View']:
+                cv = self.master.main_container.get_child('Camera View ' + str(ID))
+                cv.mpi_roi.update_plot()
+        
+        for ID in self.master.config['Simple Plot']:
+                sp = self.master.main_container.get_child('Simple Plot ' + str(ID))
+                sp.update_plot()
+                
+class AtomNumberWidget():
+    
+    def __init__(self):
+        pass
+    
+class TemperatureWidget():
+    
+    def __init__(self):
+        pass
+
 class FitsWidget():
     
     def __init__(self, master, name):
@@ -637,7 +702,10 @@ class PlotData():
     """Class for storing plot data."""
     def __init__(self, is_2d = False):
         self.is_2d=is_2d
-        self.data = None
+        if is_2d: 
+            self.data = None
+        else:
+            self.data = []
     
 
 class TimelinePlot(gui.Widget):

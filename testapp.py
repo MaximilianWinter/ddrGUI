@@ -69,15 +69,16 @@ class MyApp(App):
         for ID in self.config['Camera View'].keys():
             camview = CameraView(self, ID)
             self.view.append(camview.view)
-            self.main_container.add_pane(camview, self.config['Camera View'][ID]['x'], self.config['Camera View'][ID]['y'])
+            self.main_container.add_pane(camview, self.config['Camera View'][ID]['x'], self.config['Camera View'][ID]['y'], 'Camera View ' + str(ID))
         
         for ID in self.config['Simple Plot'].keys():
             simpleplot = SimplePlotWidget(self, ID)
             self.view.append(simpleplot.view)
-            self.main_container.add_pane(simpleplot, self.config['Simple Plot'][ID]['x'], self.config['Simple Plot'][ID]['y'])
+            self.main_container.add_pane(simpleplot, self.config['Simple Plot'][ID]['x'], self.config['Simple Plot'][ID]['y'], 'Simple Plot ' + str(ID))
             
         return self.main_container
     
+    # TODO: undo add_camview and ID for camview
     def add_camview_pressed(self, widget):
         try:
             ID = max(self.config['Camera View'].keys()) + 1
@@ -85,7 +86,7 @@ class MyApp(App):
             ID = 0 
         camview = CameraView(self, ID)
         self.view.append(camview.view)
-        self.main_container.add_pane(camview, 0, 30)
+        self.main_container.add_pane(camview, 0, 30, 'Camera View ' + str(ID))
     
     def add_lineplot_pressed(self, widget):
         try:
@@ -94,7 +95,11 @@ class MyApp(App):
             ID = 0
         simpleplot = SimplePlotWidget(self, ID)
         self.view.append(simpleplot.view)
-        self.main_container.add_pane(simpleplot, 0, 680)
+        self.main_container.add_pane(simpleplot, 0, 680, 'Simple Plot ' + str(ID))
+        
+    def on_close(self):
+        # save config file
+        pass
     
 
 if __name__ == "__main__":
