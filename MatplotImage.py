@@ -11,15 +11,15 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 import io
 import time
+import matplotlib.pyplot as plt
 
 class MatplotImage(gui.Image):
-    ax = None
 
     def __init__(self, figsize=(8,8), **kwargs):
         super(MatplotImage, self).__init__("/%s/get_image_data?update_index=0" % id(self), **kwargs)
         self._buf = None
         self._buflock = threading.Lock()
-
+        
         self.fig = Figure(figsize=figsize)
 
         self.redraw()
@@ -46,3 +46,11 @@ class MatplotImage(gui.Image):
             data = self._buf.read()
 
         return [data, {'Content-type': 'image/png'}]
+    
+    #def update_fig(self):
+    #    px = 1/plt.rcParams['figure.dpi']
+    #    
+    #    figsize = (gui.from_pix(self.style['width'])*px, gui.from_pix(self.style['height'])*px)
+    #    self.fig.set_size_inches(figsize)
+
+    #    print('update fig ', figsize)

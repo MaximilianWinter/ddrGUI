@@ -16,14 +16,14 @@ DATA_DIR = '.'
 PIXELSIZEATATOMS = 16e-6/4.7
 INITIAL_CLOUD_SIZE = 10e-6
 
-class ProcessingFilesBackEnd():
+class ProcessingFilesBackEnd(object):
     """
     Backend Class
     Independent of GUI
     """
     
     def __init__(self):        
-        self.plotdata = {   'AN':   {'data':    [],
+        self.plot_data = {   'AN':   {'data':    [],
                                      'ylabel':  'AN',
                                      'type':    '1D'},
                             'T':    {'data':    [],
@@ -67,20 +67,19 @@ class ProcessingFilesBackEnd():
                         if time_of_flight >= 0.5 and AN > 2e3: # it only makes sense to estimate the temperature after at least 0.5 ms time of flight
                             T, data = T_func(raw, time_of_flight*1e-3, PIXELSIZEATATOMS, atomroi, INITIAL_CLOUD_SIZE)
                         else:
-                            temp = np.nan
-                        self.plotdata['AN']['data'].append(AN)
-                        self.plotdata['T']['data'].append(T)
-                        self.plotdata['OD']['data'] = [OD_array]
+                            T = np.nan
+                        self.plot_data['AN']['data'].append(AN)
+                        self.plot_data['T']['data'].append(T)
+                        self.plot_data['OD']['data'] = [OD_array]
                         print("processed file ", f)
                         print("Atomnumber: %.2e" % AN)
-                        print("Temperature: %.0f nK" % (temp*1e9))
+                        print("Temperature: %.0f nK" % (T*1e9))
                         new_file_detected = True
                 except:
                     traceback.print_exception(*sys.exc_info())
                     print("processing file ", f, " failed")
-            
+            filelists[i] = new_fileList
             if new_file_detected:
-                filelists[i] = new_fileList
                 return True
         
         return False

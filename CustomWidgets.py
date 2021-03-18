@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import datetime
 import os
 from backend import ProcessingFilesBackEnd
+from utils import getAtomNumber, estimateTemperatureLongDipoletrap
     
 class ResizeHelper(gui.Widget, gui.EventSource):
     EVENT_ONDRAG = "on_drag"
@@ -301,9 +302,35 @@ class MatplotImageROI(FloatingPanesContainer):
         self.cbar = plt.colorbar(self.im, ax=self.ax_im)
         self.mpi_im.redraw()
         
-    def get_rois(self):
-        return self.get_roi_from_panel(self.atomroi), self.get_roi_from_panel(self.refroi)
+    def get_rois(self, as_dict=False):
+        if as_dict:
+            x, y, w, h = self.get_roi_from_panel(self.atomroi)
+            atomroi = {'x': x, 'y': y, 'w': w, 'h': h}
+            
+            x, y, w, h = self.get_roi_from_panel(self.refroi)
+            refroi = {'x': x, 'y': y, 'w': w, 'h': h}
+            
+            return atomroi, refroi
+        else:
+            return self.get_roi_from_panel(self.atomroi), self.get_roi_from_panel(self.refroi)
+    def get_rois_px(self, as_dict=False):
         
+        atomroi = {'x': gui.from_pix(self.atomroi.style['left']),
+                    'y': gui.from_pix(self.atomroi.style['top']),
+                    'w': gui.from_pix(self.atomroi.style['width']),
+                    'h': gui.from_pix(self.atomroi.style['height'])}
+        
+        refroi = {'x': gui.from_pix(self.refroi.style['left']),
+                    'y': gui.from_pix(self.refroi.style['top']),
+                    'w': gui.from_pix(self.refroi.style['width']),
+                    'h': gui.from_pix(self.refroi.style['height'])}
+        
+        if as_dict:
+            return atomroi, refroi
+        else:
+            return atomroi.values(), refroi.values()
+        
+
     def get_roi_from_panel(self, panel):
         """
         works if ax is used with imshow
@@ -332,45 +359,37 @@ class MatplotImageROI(FloatingPanesContainer):
         return roi
         
 
-class CameraView(gui.Widget):
+class CameraView(MatplotImageROI):
     """
     an example for a custom widget class
     """
     
-    def __init__(self, master, ID, **kwargs):
-        super(CameraView, self).__init__(style={'width': '550px', 'height': '550px', 'background-color': 'white', 'position':'absolute', 'border': '2px solid grey'}, **kwargs)
-        
+    def __init__(self, master, name, **kwargs):        
         self.master = master
-        self.ID = ID
+        self.name = name
         
         try:
-            self.variables = self.master.config['Camera View'][ID]
+            self.variables = self.master.config[self.name]
         except:
-            self.master.config['Camera View'][ID] = {'atomroi': {'x': 100, 'y': 100, 'w': 100, 'h': 100},
+            self.master.config[self.name] = {'atomroi': {'x': 100, 'y': 100, 'w': 100, 'h': 100},
                                                      'refroi': {'x': 200, 'y': 100, 'w': 100, 'h': 100},
                                                      'mpi_check': True,
+                                                     'width': 550,
+                                                     'height': 550,
                                                      'x': 0,
                                                      'y': 30,
                                                      'vmin': 0,
                                                      'vmax': 1}
             
-            self.variables = self.master.config['Camera View'][ID]
+            self.variables = self.master.config[self.name]
+        
+        super(CameraView, self).__init__(variables=self.variables, style={'width': gui.to_pix(self.variables['width']), 'height': gui.to_pix(self.variables['height']), 'position':'absolute', 'border': '2px solid grey'}, **kwargs)
         
         # Define Menu Items        
-        self.view = gui.MenuItem('Camera View ' + str(ID), width=100, height=30)
+        self.view = gui.MenuItem(self.name, width=100, height=30)
         self.view.onclick.do(self.view_pressed)
-        
-        # Define Container and its content
-        self.mpi_roi = MatplotImageROI(self.variables, width = '550px', height = '550px', margin='0px')
-        self.mpi_roi.style['background-color'] = 'white'
-        
-        # add widgets to container
-        self.add_child('mpi_roi', self.mpi_roi)
-        
-        self.children['mpi_roi'].style['position'] = 'absolute'
     
-    def view_pressed(self, widget):
-        self.view_dialog = gui.GenericDialog(title='Camera View' + str(self.ID), message='Click Ok to transfer content to main page', width='500px')
+        self.view_dialog = gui.GenericDialog(title=self.name, message='Click Ok to transfer content to main page', width='500px')
         
         self.mpi_check = gui.CheckBox(self.variables['mpi_check'], width=200, height=30)
         self.view_dialog.add_field_with_label('mpi_check', 'Visible', self.mpi_check)
@@ -382,27 +401,35 @@ class CameraView(gui.Widget):
         self.view_dialog.add_field_with_label('vmax_spinbox', 'Vmax', self.vmax_spinbox)
 
         self.view_dialog.confirm_dialog.do(self.update_view)
+        
+    def view_pressed(self, widget):
+        
         self.view_dialog.show(self.master)
         
     def update_view(self, widget):
+        self.update_variables()
+        
+        self.update_plot()
+        
+        if self.variables['mpi_check']:
+            self.master.main_container.add_pane(self, self.variables['x'],self.variables['y'])
+        else:
+            self.master.main_container.remove_pane(self)
+            
+    def update_variables(self):
+        self.variables['atomroi'], self.variables['refroi'] = self.get_rois_px(as_dict=True)
         self.variables['mpi_check'] = self.mpi_check.get_value()
+        self.variables['width'] = gui.from_pix(self.style['width'])
+        self.variables['height'] = gui.from_pix(self.style['height'])
         self.variables['x'] = gui.from_pix(self.style['left'])
         self.variables['y'] = gui.from_pix(self.style['top'])
         
         self.variables['vmin'] = self.vmin_spinbox.get_value()
         self.variables['vmax'] = self.vmax_spinbox.get_value()
         
-        self.mpi_roi.update_plot()
-        
-        if self.variables['mpi_check']:
-            self.master.main_container.add_pane(self, self.variables['x'],self.variables['y'])
-        else:
-            self.master.main_container.remove_pane(self)
-        
-class SimplePlotWidget(gui.Widget):
+class SimplePlotWidget(MatplotImage):
     
-    def __init__(self, master, ID, figsize=(10,3), style={'width': '1100px', 'height': '300px', 'background-color': 'blue', 'position':'absolute', 'border': '2px solid grey'}, **kwargs):
-        super(SimplePlotWidget, self).__init__(style=style, **kwargs)
+    def __init__(self, master, ID, figsize=(10,3), style={'position':'absolute', 'border': '2px solid grey'}, **kwargs):
         self.master = master
         self.ID = ID
         
@@ -410,30 +437,32 @@ class SimplePlotWidget(gui.Widget):
             self.variables = self.master.config['Simple Plot'][ID]
         except:
             self.master.config['Simple Plot'][ID] = {'mpi_check': True,
+                                                     'width': 1200,
+                                                     'height': 300,
                                                     'x': 0,
                                                     'y': 680,
                                                     'xmin':0,
                                                     'xmax':1,
                                                     'ymin':0,
-                                                    'ymax':1}
+                                                    'ymax':1,
+                                                    'plotdata_dropdown': 'AN'}
             self.variables = self.master.config['Simple Plot'][ID]
+        
+        px = 1/plt.rcParams['figure.dpi']
+        style['width'], style['height'] = gui.to_pix(self.variables['width']), gui.to_pix(self.variables['height']) 
+        figsize = (self.variables['width']*px, self.variables['height']*px)
+        super(SimplePlotWidget, self).__init__(figsize=figsize, style=style, **kwargs)
         
         # Define Menu Items        
         self.view = gui.MenuItem('Simple Plot ' + str(ID), width=100, height=30)
         self.view.onclick.do(self.view_pressed)
         
         # Define widget contentpyt
-        self.mpi = MatplotImage(figsize=figsize, width = style['width'], height = style['height'], margin='0px')
-        self.ax = self.mpi.fig.add_subplot(1,1,1)
-        self.mpi.redraw()
-
-        # add to main widget
-        self.add_child('mpi', self.mpi)
+        self.ax = self.fig.add_subplot(1,1,1)
+        self.redraw()
         
-        # set children's position
-        self.children['mpi'].style['position'] = 'absolute'
+        self.plot_data = self.master.processingfiles.plot_data[self.variables['plotdata_dropdown']]
     
-    def view_pressed(self, widget):
         self.view_dialog = gui.GenericDialog(title='Simple Plot ' + str(self.ID), message='Click Ok to transfer content to main page', width='500px')
         
         self.mpi_check = gui.CheckBox(self.variables['mpi_check'], width=200, height=30)
@@ -458,8 +487,29 @@ class SimplePlotWidget(gui.Widget):
         self.remove_check = gui.CheckBox(False, width=200, height=30)
         self.view_dialog.add_field_with_label('remove_check', 'Remove Instance', self.remove_check)
         
+        self.update_fig_btn = gui.Button('Update Figure', width=200, height=30, margin='10px')
+        self.view_dialog.add_field_with_label('update_fig_btn', 'Update Figure', self.update_fig_btn)
+        self.update_fig_btn.onclick.do(self.update_fig_btn_pressed)
+        
+        self.plotdata_dropdown = gui.DropDown.new_from_list(self.master.processingfiles.plot_data.keys(), width=200, height=20)
+        self.plotdata_dropdown.select_by_value(self.variables['plotdata_dropdown'])
+        self.plotdata_dropdown.onchange.do(self.plotdata_dropdown_changed)
+        self.view_dialog.add_field_with_label('plotdata_dropdown', 'Choose plotdata source', self.plotdata_dropdown)
+        
+        
         self.view_dialog.confirm_dialog.do(self.update_view)
+        
+    def view_pressed(self, widget):
+        
         self.view_dialog.show(self.master)
+    def plotdata_dropdown_changed(self, widget, new_selection):
+        self.plot_data = self.master.processingfiles.plot_data[new_selection].copy()
+        self.update_plot()
+        
+    def update_plot(self):
+        self.ax.clear()
+        self.ax.plot(self.plot_data['data'])
+        self.redraw()
     
     def update_view(self, widget):
         if self.remove_check.get_value():
@@ -468,28 +518,42 @@ class SimplePlotWidget(gui.Widget):
             del self.master.config['Simple Plot'][self.ID]
             return
         
+        self.update_variables()
+        
+        if self.variables['mpi_check']:
+            self.master.main_container.add_pane(self, self.variables['x'],self.variables['y'], 'Simple Plot ' + str(self.ID))
+        else:
+            self.master.main_container.remove_pane(self)
+            
+        self.update_plot()
+        #self.ax.set_xlim(self.variables['xmin'], self.variables['xmax'])
+        #self.ax.set_ylim(self.variables['ymin'], self.variables['ymax'])
+        
+    def update_variables(self):
         self.variables['mpi_check'] = self.mpi_check.get_value()
+        self.variables['width'] = gui.from_pix(self.style['width'])
+        self.variables['height'] = gui.from_pix(self.style['height'])
         self.variables['x'] = gui.from_pix(self.style['left'])
         self.variables['y'] = gui.from_pix(self.style['top'])
         self.variables['xmin'] = self.xmin_spinbox.get_value()
         self.variables['xmax'] = self.xmax_spinbox.get_value()
         self.variables['ymin'] = self.ymin_spinbox.get_value()
         self.variables['ymax'] = self.ymax_spinbox.get_value()
-        
-        if self.variables['mpi_check']:
-            self.master.main_container.add_pane(self, self.variables['x'],self.variables['y'])
-        else:
-            self.master.main_container.remove_pane(self)
-            
-        self.ax.clear()
-        self.ax.set_xlim(self.variables['xmin'], self.variables['xmax'])
-        self.ax.set_ylim(self.variables['ymin'], self.variables['ymax'])
-        self.mpi.redraw()
+        self.variables['plotdata_dropdown'] = self.plotdata_dropdown.get_value()
     
     def clear_btn_pressed(self, widget):
-        self.plot_data = []
+        #self.plot_data = []
         self.ax.clear()
-        self.mpi.redraw()
+        self.redraw()
+        
+    def update_fig_btn_pressed(self, widget):
+        
+        px = 1/plt.rcParams['figure.dpi']
+        
+        figsize = (gui.from_pix(self.style['width'])*px, gui.from_pix(self.style['height'])*px)
+        self.fig.set_size_inches(figsize)
+        print('new figsize ', figsize)
+        self.update_plot()
         
 DATA_DIR = '.'
 class ProcessingFiles(ProcessingFilesBackEnd):
@@ -502,11 +566,10 @@ class ProcessingFiles(ProcessingFilesBackEnd):
         self.settings = gui.MenuItem(name, width=100, height=30)
         
         self.directory = DirectoryWidget(self.master, 'Directory')        
-        self.fits = FitsWidget(self.master, 'Fits')
-        self.settings.append([self.directory.settings, self.fits.settings])
+        self.AN = AtomNumberWidget(master, 'Atom Number')
+        self.T = TemperatureWidget(master, 'Temperature')
         
-        self.AN = AtomNumberWidget()
-        self.T = TemperatureWidget()
+        self.settings.append([self.directory.settings, self.AN.settings, self.T.settings])
         
         self.running = False
         
@@ -518,13 +581,14 @@ class ProcessingFiles(ProcessingFilesBackEnd):
                 
         while(self.running):
             atomroi, refroi = self.master.main_container.get_child('Camera View').mpi_roi.get_rois()
-            self.do_processing(self.directory.directories, self.fileLists, atomroi, refroi, AN_func=self.AN.func, T_func=self.T.func)
+            if self.do_processing(self.directory.directories, self.fileLists, atomroi, refroi, AN_func=self.AN.func, T_func=self.T.func):
+                self.update_plots()
             
                     
     def update_plots(self):
-        for ID in self.master.config['Camera View']:
-                cv = self.master.main_container.get_child('Camera View ' + str(ID))
-                cv.mpi_roi.update_plot()
+        #for ID in self.master.config['Camera View']:
+        #        cv = self.master.main_container.get_child('Camera View ' + str(ID))
+        #        cv.mpi_roi.update_plot()
         
         for ID in self.master.config['Simple Plot']:
                 sp = self.master.main_container.get_child('Simple Plot ' + str(ID))
@@ -532,12 +596,71 @@ class ProcessingFiles(ProcessingFilesBackEnd):
                 
 class AtomNumberWidget():
     
-    def __init__(self):
+    def __init__(self, master, name):
+        self.master = master
+        self.name = name
+        self.variables = self.master.config[name]
+        
+        # Define Menu Items
+        self.settings = gui.MenuItem(name, width=100, height=30)
+        self.settings.onclick.do(self.settings_pressed)
+        
+        self.available_AN_funcs = {'default' : getAtomNumber}
+        self.func = self.available_AN_funcs[self.variables['AN_dropdown']]
+        
+    def settings_pressed(self, widget):
+        self.AN_menu_dialog = gui.GenericDialog(title=self.name + ' Menu', message='Click Ok to transfer content to main page', width='500px')
+        
+        self.AN_dropdown = gui.DropDown.new_from_list(self.available_AN_funcs.keys(),
+                                                    width=200, height=20)
+        self.AN_dropdown.select_by_value(self.variables['AN_dropdown'])
+        self.AN_dropdown.onchange.do(self.AN_dropdown_changed)
+        self.AN_menu_dialog.add_field_with_label('AN_dropdown', 'Choose AN function', self.AN_dropdown)
+        
+        self.AN_menu_dialog.confirm_dialog.do(self.update_AN_menu)
+        self.AN_menu_dialog.show(self.master)
+        
+    def update_AN_menu(self, widget):
+        self.variables['AN_dropdown'] = self.AN_dropdown.get_value()
+        
+        
+        self.func = self.available_AN_funcs[self.AN_dropdown.get_value()]
+    
+    def AN_dropdown_changed(self, widget, chosen_AN):
         pass
     
 class TemperatureWidget():
     
-    def __init__(self):
+    def __init__(self, master, name):
+        self.master = master
+        self.name = name
+        self.variables = self.master.config[name]
+        
+        # Define Menu Items
+        self.settings = gui.MenuItem(name, width=100, height=30)
+        self.settings.onclick.do(self.settings_pressed)
+        
+        self.available_T_funcs = {'Long Dipole Trap' : estimateTemperatureLongDipoletrap}
+        self.func = self.available_T_funcs[self.variables['T_dropdown']]
+    
+    def settings_pressed(self, widget):
+        self.T_menu_dialog = gui.GenericDialog(title=self.name + ' Menu', message='Click Ok to transfer content to main page', width='500px')
+        
+        self.T_dropdown = gui.DropDown.new_from_list(self.available_T_funcs.keys(),
+                                                    width=200, height=20)
+        self.T_dropdown.select_by_value(self.variables['T_dropdown'])
+        self.T_dropdown.onchange.do(self.T_dropdown_changed)
+        self.T_menu_dialog.add_field_with_label('T_dropdown', 'Choose T function', self.T_dropdown)
+        
+        self.T_menu_dialog.confirm_dialog.do(self.update_T_menu)
+        self.T_menu_dialog.show(self.master)
+        
+    def update_T_menu(self, widget):
+        self.variables['T_dropdown'] = self.T_dropdown.get_value()
+        
+        self.func = self.available_T_funcs[self.T_dropdown.get_value()]
+    
+    def T_dropdown_changed(self, widget, chosen_T):
         pass
 
 class FitsWidget():
