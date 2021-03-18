@@ -96,8 +96,9 @@ class MyApp(App):
     
     def add_lineplot_pressed(self, widget):
         try:
-            ID = max(self.config['Simple Plot'].keys()) + 1
+            ID = int(max(self.config['Simple Plot'].keys())) + 1
         except:
+            print('here: ', self.config['Simple Plot'].keys())
             ID = 0
         simpleplot = SimplePlotWidget(self, ID)
         self.view.append(simpleplot.view)

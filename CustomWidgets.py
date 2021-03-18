@@ -402,6 +402,8 @@ class CameraView(MatplotImageROI):
 
         self.view_dialog.confirm_dialog.do(self.update_view)
         
+        self.plot_data = self.master.processingfiles.plot_data['OD'].copy()
+        
     def view_pressed(self, widget):
         
         self.view_dialog.show(self.master)
@@ -426,6 +428,12 @@ class CameraView(MatplotImageROI):
         
         self.variables['vmin'] = self.vmin_spinbox.get_value()
         self.variables['vmax'] = self.vmax_spinbox.get_value()
+        
+    def update_plot(self):
+        #self.ax_im.clear()
+        #self.ax_im.imshow(self.plot_data['data'])
+        #self.mpi_im.redraw()
+        print(self.plot_data['data'])
         
 class SimplePlotWidget(MatplotImage):
     
@@ -508,8 +516,10 @@ class SimplePlotWidget(MatplotImage):
         
     def update_plot(self):
         self.ax.clear()
-        self.ax.plot(self.plot_data['data'])
-        self.redraw()
+        self.ax.plot(self.plot_data['data'])    # note that self.plot_data['data'] gets updated 
+                                                # despite having used the copy() method before 
+                                                # for self.plot_data
+        self.redraw()                           # this is because self.plot_data['data'] is a dict
     
     def update_view(self, widget):
         if self.remove_check.get_value():
@@ -580,7 +590,7 @@ class ProcessingFiles(ProcessingFilesBackEnd):
                  for i in os.listdir(directory) if i.endswith('.hid')]))
                 
         while(self.running):
-            atomroi, refroi = self.master.main_container.get_child('Camera View').mpi_roi.get_rois()
+            atomroi, refroi = self.master.main_container.get_child('Camera View').get_rois()
             if self.do_processing(self.directory.directories, self.fileLists, atomroi, refroi, AN_func=self.AN.func, T_func=self.T.func):
                 self.update_plots()
             
@@ -593,6 +603,9 @@ class ProcessingFiles(ProcessingFilesBackEnd):
         for ID in self.master.config['Simple Plot']:
                 sp = self.master.main_container.get_child('Simple Plot ' + str(ID))
                 sp.update_plot()
+        
+        cv = self.master.main_container.get_child('Camera View')
+        cv.update_plot()
                 
 class AtomNumberWidget():
     
