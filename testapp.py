@@ -3,9 +3,16 @@
 Created on Thu Mar 11 18:11:16 2021
 
 @author: mWinter
+
+todo:
+    1. add ax labels, xlim, ylim, linestyle, color for Simple Plot
+    2. add fit plot
+    3. automatic figure update when resized
+    4. use class with view for AN/T function choices
+    5. add animation when loop is running
 """
 from remi import gui, App, start
-from CustomWidgets import CameraView, TimelinePlot, SimplePlotWidget, FloatingPanesContainer, ProcessingFiles
+from CustomWidgets import CameraView, SimplePlotWidget, FloatingPanesContainer, ProcessingFiles
 from threading import Thread
 import json
         
