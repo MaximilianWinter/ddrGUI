@@ -5,8 +5,8 @@ Created on Thu Mar 11 18:11:16 2021
 @author: mWinter
 
 todo:
-    1. add ax labels, xlim, ylim, linestyle, color for Simple Plot
-    2. add fit plot
+    1. add ax labels, xlim, ylim, linestyle, color for Simple Plot; done
+    2. add fit plot, add plotsources in simple plot
     3. automatic figure update when resized
     4. use class with view for AN/T function choices
     5. add animation when loop is running
@@ -37,11 +37,13 @@ class MyApp(App):
                                                  'height': 300,
                                                 'x': 0,
                                                 'y': 680,
-                                                'xmin':0,
-                                                'xmax':1,
-                                                'ymin':0,
-                                                'ymax':1,
-                                                'plotdata_dropdown': 'AN'}},
+                                                'xlim_check': True,
+                                                'xlim':(0,1),
+                                                'ylim_check': True,
+                                                'ylim':(0,1),
+                                                'plotdata_dropdown': 'AN',
+                                                'color': 'blue',
+                                                 'linestyle': '-'}},
                            'Processing Files': {},
                            'Directory': {'selected_directories': ['.'],
                                                 'today_dir_check_val': False},
@@ -143,8 +145,9 @@ if __name__ == "__main__":
     # starts the webserver
     # optional parameters
     # start(MyApp,address='127.0.0.1', port=8081, multiple_instance=False,enable_file_cache=True, update_interval=0.1, start_browser=True)
-    start(MyApp, debug=False, address='130.183.94.217', port=8081, start_browser=False, multiple_instance=False)        
-        
+    #start(MyApp, debug=False, address='130.183.94.217', port=8081, start_browser=False, multiple_instance=False)        
+    #start(MyApp, debug=False, address='192.1.2.20', port=8081, start_browser=False, multiple_instance=False) 
+    start(MyApp, debug=False, address='0.0.0.0', port=8081, start_browser=False, multiple_instance=False)        
         
         
         

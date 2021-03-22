@@ -29,6 +29,9 @@ class ProcessingFilesBackEnd(object):
                             'T':    {'data':    [],
                                      'ylabel': 'T',
                                      'type':    '1D'},
+                            'fit':  {'data':    [0, 0, 0], #TODO: more elegant solution
+                                     'ylabel': 'fit'
+                                     },
                             'OD':   {'data':    [],
                                      'type':    '2D'}
                         }
@@ -66,6 +69,7 @@ class ProcessingFilesBackEnd(object):
                         time_of_flight = float(parameters['ABSORPTIONPICEXPOSUREDELAY'])
                         if time_of_flight >= 0.5 and AN > 2e3: # it only makes sense to estimate the temperature after at least 0.5 ms time of flight
                             T, data = T_func(raw, time_of_flight*1e-3, PIXELSIZEATATOMS, atomroi, INITIAL_CLOUD_SIZE)
+                            self.plot_data['fit']['data'] = data
                         else:
                             T = np.nan
                         self.plot_data['AN']['data'].append(AN)

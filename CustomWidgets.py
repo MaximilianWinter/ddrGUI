@@ -18,6 +18,7 @@ import os
 from backend import ProcessingFilesBackEnd
 from utils import getAtomNumber, estimateTemperatureLongDipoletrap
 from FloatingPanesContainer import FloatingPanesContainer
+import time
 
 class GenericWidgetClass():
     """Note: any variable that should be stored in a config file is accessed via the variable dict"""
@@ -163,6 +164,7 @@ class MatplotImageROI(FloatingPanesContainer):
         inv = self.ax_im.transData.inverted()
         
         roi = [int(i) for i in inv.transform([x, y, w+x0, h+y0])]
+        roi[1] = roi[1]+roi[-1] # TODO: more elegant solution
         roi[-1] *= -1
         
         return roi
@@ -253,15 +255,17 @@ class SimplePlotWidget(MatplotImage):
             self.variables = self.master.config['Simple Plot'][ID]
         except:
             self.master.config['Simple Plot'][ID] = {'mpi_check': True,
-                                                     'width': 1200,
-                                                     'height': 300,
-                                                    'x': 0,
-                                                    'y': 680,
-                                                    'xmin':0,
-                                                    'xmax':1,
-                                                    'ymin':0,
-                                                    'ymax':1,
-                                                    'plotdata_dropdown': 'AN'}
+                                                 'width': 1200,
+                                                 'height': 300,
+                                                'x': 0,
+                                                'y': 680,
+                                                'xlim_check': True,
+                                                'xlim':(0,1),
+                                                'ylim_check': True,
+                                                'ylim':(0,1),
+                                                'plotdata_dropdown': 'AN',
+                                                'color': 'blue',
+                                                 'linestyle': '-'}
             self.variables = self.master.config['Simple Plot'][ID]
         
         px = 1/plt.rcParams['figure.dpi']
@@ -284,17 +288,19 @@ class SimplePlotWidget(MatplotImage):
         self.mpi_check = gui.CheckBox(self.variables['mpi_check'], width=200, height=30)
         self.view_dialog.add_field_with_label('mpi_check', 'Visible', self.mpi_check)
         
-        self.xmin_spinbox = gui.SpinBox(default_value=self.variables['xmin'], min_value=0, max_value=2**16-1, step=1, width=200, height=20)
-        self.view_dialog.add_field_with_label('xmin_spinbox', 'xmin', self.xmin_spinbox)
-    
-        self.xmax_spinbox = gui.SpinBox(default_value=self.variables['xmax'], min_value=0, max_value=2**16-1, step=1, width=200, height=20)
-        self.view_dialog.add_field_with_label('xmax_spinbox', 'xmin', self.xmax_spinbox)
+        self.xlim_check = gui.CheckBox(self.variables['xlim_check'], width=200, height=30)
+        self.view_dialog.add_field_with_label('xlim_check', 'xlim auto', self.xlim_check)
         
-        self.ymin_spinbox = gui.SpinBox(default_value=self.variables['ymin'], min_value=0, max_value=2**16-1, step=1, width=200, height=20)
-        self.view_dialog.add_field_with_label('ymin_spinbox', 'ymin', self.ymin_spinbox)
-    
-        self.ymax_spinbox = gui.SpinBox(default_value=self.variables['ymax'], min_value=0, max_value=2**16-1, step=1, width=200, height=20)
-        self.view_dialog.add_field_with_label('ymax_spinbox', 'ymin', self.ymax_spinbox)
+        self.xlim_text = gui.TextInput(width=200, height=30, margin='10px')
+        self.xlim_text.set_text(str(self.variables['xlim'])[1:-1])
+        self.view_dialog.add_field_with_label('xlim_text', 'xlim (sep. by comma)', self.xlim_text)
+
+        self.ylim_check = gui.CheckBox(self.variables['ylim_check'], width=200, height=30)
+        self.view_dialog.add_field_with_label('ylim_check', 'ylim auto', self.ylim_check)
+        
+        self.ylim_text = gui.TextInput(width=200, height=30, margin='10px')
+        self.ylim_text.set_text(str(self.variables['ylim'])[1:-1])
+        self.view_dialog.add_field_with_label('ylim_text', 'ylim (sep. by comma)', self.ylim_text)
         
         self.clear_btn = gui.Button('Clear Data', width=200, height=30, margin='10px')
         self.view_dialog.add_field_with_label('clear_btn', 'Clear Data', self.clear_btn)
@@ -307,24 +313,48 @@ class SimplePlotWidget(MatplotImage):
         self.view_dialog.add_field_with_label('update_fig_btn', 'Update Figure', self.update_fig_btn)
         self.update_fig_btn.onclick.do(self.update_fig_btn_pressed)
         
+        self.colorpicker = gui.ColorPicker(self.variables['color'], width=200, height=20, margin='10px')
+        self.view_dialog.add_field_with_label('colorpicker', 'Color', self.colorpicker)
+        
+        self.linestyle_dropdown = gui.DropDown.new_from_list(['-', '--', '-.', '.', '.-'], width=200, height=20)
+        self.linestyle_dropdown.select_by_value(self.variables['linestyle'])
+        self.view_dialog.add_field_with_label('linestyle_dropdown', 'Choose linestyle', self.linestyle_dropdown)
+        
         self.plotdata_dropdown = gui.DropDown.new_from_list(self.master.processingfiles.plot_data.keys(), width=200, height=20)
         self.plotdata_dropdown.select_by_value(self.variables['plotdata_dropdown'])
         self.plotdata_dropdown.onchange.do(self.plotdata_dropdown_changed)
         self.view_dialog.add_field_with_label('plotdata_dropdown', 'Choose plotdata source', self.plotdata_dropdown)
         
+        #self.add_plotdata_btn = gui.Button('Add plotdata source', width=200, height=30, margin='10px')
+        #self.view_dialog.add_field_with_label('add_plotdata_btn', 'Add plotdata source', self.add_plotdata_btn)
+        #self.add_plotdata_btn.onclick.do(self.add_plotdata_btn_pressed)
         
         self.view_dialog.confirm_dialog.do(self.update_view)
         
-    def view_pressed(self, widget):
+    ##def add_plotdata_btn_pressed(self, widget):
         
+        
+    def view_pressed(self, widget):
         self.view_dialog.show(self.master)
+        
     def plotdata_dropdown_changed(self, widget, new_selection):
         self.plot_data = self.master.processingfiles.plot_data[new_selection]
         self.update_plot()
         
     def update_plot(self):
         self.ax.clear()
-        self.ax.plot(self.plot_data['data'])
+        
+        # TODO: fix to make generic
+        if self.plotdata_dropdown.get_value() == 'fit':
+            self.ax.plot(self.plot_data['data'][1], self.plot_data['data'][-1], self.variables['linestyle'], color=self.variables['color'])
+            self.ax.plot(self.plot_data['data'][0], '.', color='black')
+        else:
+            self.ax.plot(self.plot_data['data'], self.variables['linestyle'], color=self.variables['color'])
+        self.ax.set_ylabel(self.plot_data['ylabel'])
+        if not self.variables['xlim_check']:
+            self.ax.set_xlim(*self.variables['xlim'])
+        if not self.variables['ylim_check']:
+            self.ax.set_ylim(*self.variables['ylim'])
         self.redraw()                          
     
     def update_view(self, widget):
@@ -351,10 +381,12 @@ class SimplePlotWidget(MatplotImage):
         self.variables['height'] = gui.from_pix(self.style['height'])
         self.variables['x'] = gui.from_pix(self.style['left'])
         self.variables['y'] = gui.from_pix(self.style['top'])
-        self.variables['xmin'] = self.xmin_spinbox.get_value()
-        self.variables['xmax'] = self.xmax_spinbox.get_value()
-        self.variables['ymin'] = self.ymin_spinbox.get_value()
-        self.variables['ymax'] = self.ymax_spinbox.get_value()
+        self.variables['xlim_check'] = self.xlim_check.get_value()
+        self.variables['xlim'] = tuple(map(float, self.xlim_text.get_value().split(',')))
+        self.variables['ylim_check'] = self.ylim_check.get_value()
+        self.variables['ylim'] = tuple(map(float, self.ylim_text.get_value().split(',')))
+        self.variables['color'] = self.colorpicker.get_value()
+        self.variables['linestyle'] = self.linestyle_dropdown.get_value()
         self.variables['plotdata_dropdown'] = self.plotdata_dropdown.get_value()
     
     def clear_btn_pressed(self, widget):
@@ -399,6 +431,8 @@ class ProcessingFiles(ProcessingFilesBackEnd):
             atomroi, refroi = self.master.main_container.get_child('Camera View').get_rois()
             if self.do_processing(self.directory.directories, self.fileLists, atomroi, refroi, AN_func=self.AN.func, T_func=self.T.func):
                 self.update_plots()
+            time.sleep(0.5)
+            print(atomroi, refroi)
             
                     
     def update_plots(self):
