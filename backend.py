@@ -23,17 +23,34 @@ class ProcessingFilesBackEnd(object):
     """
     
     def __init__(self):        
-        self.plot_data = {   'AN':   {'data':    [],
-                                     'ylabel':  'AN',
-                                     'type':    '1D'},
-                            'T':    {'data':    [],
-                                     'ylabel': 'T',
-                                     'type':    '1D'},
-                            'fit':  {'data':    [0, 0, 0], #TODO: more elegant solution
-                                     'ylabel': 'fit'
+        self.plot_data = {'1D': {
+                                'AN':   {
+                                        'data':    {
+                                                    'x': None,
+                                                    'y': []},
+                                        'label':   'AN'},
+                                'T':    {
+                                        'data':    {
+                                                    'x': None,
+                                                    'y': []},
+                                        'label':   'T'},
+                                'fit':  {
+                                        'data':    {
+                                                    'x':  [],
+                                                    'y': []},
+                                        'label':   'fit'},
+                                'fit_datapoints':  {
+                                        'data':    {
+                                                    'x':  None,
+                                                    'y': []},
+                                        'label':   'fit_datapoints'}
                                      },
-                            'OD':   {'data':    [],
-                                     'type':    '2D'}
+                          
+                          
+                          
+                          '2D': {
+                                  'OD':   {'data':    []}
+                                     }
                         }
 
     def do_processing(self, directories, filelists, atomroi, refroi, AN_func = getAtomNumber, T_func = estimateTemperatureLongDipoletrap, rotation_angle = 0):
@@ -69,12 +86,14 @@ class ProcessingFilesBackEnd(object):
                         time_of_flight = float(parameters['ABSORPTIONPICEXPOSUREDELAY'])
                         if time_of_flight >= 0.5 and AN > 2e3: # it only makes sense to estimate the temperature after at least 0.5 ms time of flight
                             T, data = T_func(raw, time_of_flight*1e-3, PIXELSIZEATATOMS, atomroi, INITIAL_CLOUD_SIZE)
-                            self.plot_data['fit']['data'] = data
+                            self.plot_data['1D']['fit_datapoints']['data']['y'] = data[0]
+                            self.plot_data['1D']['fit']['data']['x'] = data[1]
+                            self.plot_data['1D']['fit']['data']['y'] = data[2]
                         else:
                             T = np.nan
-                        self.plot_data['AN']['data'].append(AN)
-                        self.plot_data['T']['data'].append(T)
-                        self.plot_data['OD']['data'] = [OD_array]
+                        self.plot_data['1D']['AN']['data']['y'].append(AN)
+                        self.plot_data['1D']['T']['data']['y'].append(T)
+                        self.plot_data['2D']['OD']['data'] = [OD_array]
                         print("processed file ", f)
                         print("Atomnumber: %.2e" % AN)
                         print("Temperature: %.0f nK" % (T*1e9))

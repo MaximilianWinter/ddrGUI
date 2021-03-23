@@ -5,6 +5,7 @@ Created on Fri Mar 19 17:32:14 2021
 @author: mWinter
 """
 from remi import gui
+from MatplotImage import MatplotImage
 
 class ResizeHelper(gui.Widget, gui.EventSource):
     EVENT_ONDRAG = "on_drag"
@@ -59,6 +60,12 @@ class ResizeHelper(gui.Widget, gui.EventSource):
     def stop_drag(self, emitter, x, y):
         self.active = False
         self.update_position()
+        
+        try:
+            self.refWidget.update_fig()
+            print('updating figure')
+        except:
+            print('no figure for updating')
 
     @gui.decorate_event
     def on_drag(self, emitter, x, y):
@@ -78,7 +85,6 @@ class ResizeHelper(gui.Widget, gui.EventSource):
         self.style['position']='absolute'
         self.style['left']=gui.to_pix(gui.from_pix(self.refWidget.style['left']) + gui.from_pix(self.refWidget.style['width']) - gui.from_pix(self.style['width'])/2)
         self.style['top']=gui.to_pix(gui.from_pix(self.refWidget.style['top']) + gui.from_pix(self.refWidget.style['height']) - gui.from_pix(self.style['height'])/2)
-
 
 
 class DragHelper(gui.Widget, gui.EventSource):
@@ -138,6 +144,10 @@ class DragHelper(gui.Widget, gui.EventSource):
     @gui.decorate_event
     def on_drag(self, emitter, x, y):
         if self.active:
+            try:
+                self.refWidget.unselect_panes()
+            except:
+                print('nope')
             if self.origin_x == -1:
                 self.origin_x = float(x)
                 self.origin_y = float(y)
@@ -191,6 +201,50 @@ class FloatingPanesContainer(gui.Container):
         print('on pane selection')
         self.resizeHelper.setup(emitter,self)
         self.dragHelper.setup(emitter,self)
+        self.resizeHelper.update_position()
+        self.dragHelper.update_position()
+
+    def on_helper_dragged_update_the_latter_pos(self, emitter, widget_to_update):
+        widget_to_update.update_position()
+        
+class FloatingPanesMPI(gui.Container):
+
+    def __init__(self, master_fpc, **kwargs):
+        super(FloatingPanesMPI, self).__init__(**kwargs)
+        self.resizeHelper = ResizeHelper(self, width=16, height=16)
+        self.dragHelper = DragHelper(self, width=15, height=15)
+        self.resizeHelper.on_drag.do(self.on_helper_dragged_update_the_latter_pos, self.dragHelper)
+        self.dragHelper.on_drag.do(self.on_helper_dragged_update_the_latter_pos, self.resizeHelper)
+
+        self.style['position'] = 'relative'    
+        self.style['overflow'] = 'auto'
+
+        self.append(self.resizeHelper)
+        self.append(self.dragHelper)
+        
+        self.master_fpc = master_fpc
+
+    def add_pane(self, pane, x, y, key = None): # add key
+        pane.style['left'] = gui.to_pix(x)
+        pane.style['top'] = gui.to_pix(y)
+        pane.onclick.do(self.on_pane_selection)
+        pane.style['position'] = 'absolute'
+        
+        if key is None:
+            self.append(pane)
+        else:
+            self.append(pane, key)
+        self.on_pane_selection(pane)
+    
+    def remove_pane(self, pane):
+        self.remove_child(pane)
+        self.resizeHelper.setup(None,None)
+        self.dragHelper.setup(None,None)
+
+    def on_pane_selection(self, emitter):
+        print('on pane selection')
+        self.resizeHelper.setup(emitter,self.master_fpc)
+        self.dragHelper.setup(emitter,self.master_fpc)
         self.resizeHelper.update_position()
         self.dragHelper.update_position()
 

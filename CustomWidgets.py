@@ -6,7 +6,7 @@ Created on Fri Mar 12 15:22:06 2021
 
 winter.maximilian (at) physik.lmu.de
 or
-mwinter (at) mpq.mpg.de
+maximilian.winter (at) mpq.mpg.de
 """
 
 from remi import gui
@@ -17,7 +17,7 @@ import datetime
 import os
 from backend import ProcessingFilesBackEnd
 from utils import getAtomNumber, estimateTemperatureLongDipoletrap
-from FloatingPanesContainer import FloatingPanesContainer
+from FloatingPanesContainer import FloatingPanesContainer, FloatingPanesMPI
 import time
 
 class GenericWidgetClass():
@@ -76,6 +76,100 @@ class GenericWidgetClass():
             self.container.remove_child(self.progress)
         else:
             self.container.add_child('progress', self.progress)
+
+
+class MatplotImageROINew(FloatingPanesMPI):
+    """
+    MatplotImage widget with two ROIS
+    
+    """
+    
+    def __init__(self, master, variables, **kwargs):
+        super(MatplotImageROINew, self).__init__(master.main_container,**kwargs)
+        self.variables = variables
+    
+        self.atomroi = gui.Container(width=self.variables['atomroi']['w'], height=self.variables['atomroi']['h'])
+        self.atomroi.style['background-color'] = 'transparent'
+        self.atomroi.style['border'] = '2px solid white'
+        
+        self.refroi = gui.Container(width=self.variables['refroi']['w'], height=self.variables['refroi']['h'])
+        self.refroi.style['background-color'] = 'transparent'
+        self.refroi.style['border'] = '2px dotted white'
+        
+        self.mpi_im = MatplotImage(figsize=(7.5,7.5), **kwargs)
+        self.ax_im = self.mpi_im.fig.add_subplot(1,1,1)
+        self.plot_data = np.zeros((512,512))
+        self.im = self.ax_im.imshow(self.plot_data, vmin = self.variables['vmin'], vmax = self.variables['vmax'])
+        self.cbar = plt.colorbar(self.im, ax=self.ax_im)
+        self.mpi_im.redraw()
+        self.append(self.mpi_im)
+        self.add_pane(self.atomroi, self.variables['atomroi']['x'], self.variables['atomroi']['y'])
+        self.add_pane(self.refroi, self.variables['refroi']['x'], self.variables['refroi']['y'])
+        
+        
+    def update_plot(self):
+        # make stable for empty plot_data['data']
+        self.im = self.ax_im.imshow(self.plot_data['data'][0], vmin = self.variables['vmin'], vmax = self.variables['vmax'])
+        self.cbar.remove()
+        self.cbar = plt.colorbar(self.im, ax=self.ax_im)
+        self.mpi_im.redraw()
+        
+    def get_rois(self, as_dict=False):
+        if as_dict:
+            x, y, w, h = self.get_roi_from_panel(self.atomroi)
+            atomroi = {'x': x, 'y': y, 'w': w, 'h': h}
+            
+            x, y, w, h = self.get_roi_from_panel(self.refroi)
+            refroi = {'x': x, 'y': y, 'w': w, 'h': h}
+            
+            return atomroi, refroi
+        else:
+            return self.get_roi_from_panel(self.atomroi), self.get_roi_from_panel(self.refroi)
+    def get_rois_px(self, as_dict=False):
+        
+        atomroi = {'x': gui.from_pix(self.atomroi.style['left']),
+                    'y': gui.from_pix(self.atomroi.style['top']),
+                    'w': gui.from_pix(self.atomroi.style['width']),
+                    'h': gui.from_pix(self.atomroi.style['height'])}
+        
+        refroi = {'x': gui.from_pix(self.refroi.style['left']),
+                    'y': gui.from_pix(self.refroi.style['top']),
+                    'w': gui.from_pix(self.refroi.style['width']),
+                    'h': gui.from_pix(self.refroi.style['height'])}
+        
+        if as_dict:
+            return atomroi, refroi
+        else:
+            return atomroi.values(), refroi.values()
+        
+
+    def get_roi_from_panel(self, panel):
+        """
+        works if ax is used with imshow
+        
+        returns x, y, w, h (all ints, in data coordinates)
+        
+        :                +------------------+
+        :                |                  |
+        :              height               |
+        :                |                  |
+        :               (xy)---- width -----+
+        
+        """
+        
+        fig_w, fig_h = self.mpi_im.fig.canvas.get_width_height()
+        
+        w, h = gui.from_pix(panel.style['width']), gui.from_pix(panel.style['height'])
+        x, y = gui.from_pix(panel.style['left']), fig_h - (gui.from_pix(panel.style['top']) + h)
+        
+        x0, y0 = self.ax_im.transData.transform((0, 0))
+        inv = self.ax_im.transData.inverted()
+        
+        roi = [int(i) for i in inv.transform([x, y, w+x0, h+y0])]
+        roi[1] = roi[1]+roi[-1] # TODO: more elegant solution
+        roi[-1] *= -1
+        
+        return roi
             
 class MatplotImageROI(FloatingPanesContainer):
     """
@@ -95,15 +189,16 @@ class MatplotImageROI(FloatingPanesContainer):
         self.refroi.style['background-color'] = 'transparent'
         self.refroi.style['border'] = '2px dotted white'
         
-        self.mpi_im = MatplotImage(figsize=(7.5,7.5))
+        self.mpi_im = MatplotImage(figsize=(7.5,7.5), **kwargs)
         self.ax_im = self.mpi_im.fig.add_subplot(1,1,1)
         self.plot_data = np.zeros((512,512))
         self.im = self.ax_im.imshow(self.plot_data, vmin = self.variables['vmin'], vmax = self.variables['vmax'])
         self.cbar = plt.colorbar(self.im, ax=self.ax_im)
         self.mpi_im.redraw()
+        self.append(self.mpi_im)
         self.add_pane(self.atomroi, self.variables['atomroi']['x'], self.variables['atomroi']['y'])
         self.add_pane(self.refroi, self.variables['refroi']['x'], self.variables['refroi']['y'])
-        self.append(self.mpi_im)
+        
         
     def update_plot(self):
         # make stable for empty plot_data['data']
@@ -213,7 +308,7 @@ class CameraView(MatplotImageROI):
 
         self.view_dialog.confirm_dialog.do(self.update_view)
         
-        self.plot_data = self.master.processingfiles.plot_data['OD']
+        self.plot_data = self.master.processingfiles.plot_data['2D']['OD']
         
     def view_pressed(self, widget):
         
@@ -240,10 +335,73 @@ class CameraView(MatplotImageROI):
         self.variables['vmin'] = self.vmin_spinbox.get_value()
         self.variables['vmax'] = self.vmax_spinbox.get_value()
         
+    def update_fig(self):
+        self.mpi_im.style['width'] = self.style['width']
+        self.mpi_im.style['height'] = self.style['height']                                      
+        self.mpi_im.update_fig()
+        
+    def unselect_panes(self):
+        print('unselect panes')
+        self.resizeHelper.setup(None,None)
+        self.dragHelper.setup(None,None)
+        
     #def update_plot(self):
         #self.ax_im.clear()
         #self.ax_im.imshow(self.plot_data['data'][0], vmin=self.variables['vmin'], vmax=self.variables['vmax'])
         #self.mpi_im.redraw()
+        
+class LinePlotDataTabbox(gui.TabBox):
+    
+    def __init__(self, master, variables, style={'align-content':'center', 'width': '80%','margin':'auto'}, **kwargs):
+        super(LinePlotDataTabbox, self).__init__(style=style, **kwargs)
+        self.master = master
+        self.variables = variables
+        
+        for key in self.variables['color'].keys():
+            container = gui.VBox(width=200, height=200,style={'align-content':'center', 'margin':'auto'})
+            colorpicker = gui.ColorPicker(self.variables['color'][key], width=200, height=20, margin='10px')
+            
+            linestyle_dropdown = gui.DropDown.new_from_list(['-', '--', '-.', '.', '.-'], width=200, height=20)
+            linestyle_dropdown.select_by_value(self.variables['linestyle'][key])
+            
+            plotdata_dropdown = gui.DropDown.new_from_list(self.master.processingfiles.plot_data['1D'].keys(), width=200, height=20)
+            plotdata_dropdown.select_by_value(self.variables['plotdata_dropdown'][key])
+            
+            container.append({'color' : colorpicker, 'linestyle': linestyle_dropdown, 'plot_data': plotdata_dropdown})
+            
+            self.append(container, str(key))
+        
+    def add_tab(self, widget):
+        key = str(len(self.children)-1)
+        
+        self.variables['color'][key] = 'black'
+        self.variables['plotdata_dropdown'][key] = 'AN'
+        self.variables['linestyle'][key] = '-'
+        
+        container = gui.VBox(width=200, height=200,style={'align-content':'center','margin':'auto'})
+        colorpicker = gui.ColorPicker(self.variables['color'][key], width=200, height=20, margin='10px')
+        
+        linestyle_dropdown = gui.DropDown.new_from_list(['-', '--', '-.', '.', '.-'], width=200, height=20)
+        linestyle_dropdown.select_by_value(self.variables['linestyle'][key])
+        
+        plotdata_dropdown = gui.DropDown.new_from_list(self.master.processingfiles.plot_data['1D'].keys(), width=200, height=20)
+        plotdata_dropdown.select_by_value(self.variables['plotdata_dropdown'][key])
+        
+        container.append({'color' : colorpicker, 'linestyle': linestyle_dropdown, 'plot_data': plotdata_dropdown})
+        
+        self.append(container, key)
+        
+    def remove_tab(self, widget):
+        if len(self.children) < 3:
+            return
+        
+        key = str(len(self.children) - 2)
+        
+        self.remove_child(self.children[key])
+        
+        del self.variables['color'][key]
+        del self.variables['plotdata_dropdown'][key]
+        del self.variables['linestyle'][key]
         
 class SimplePlotWidget(MatplotImage):
     
@@ -263,9 +421,9 @@ class SimplePlotWidget(MatplotImage):
                                                 'xlim':(0,1),
                                                 'ylim_check': True,
                                                 'ylim':(0,1),
-                                                'plotdata_dropdown': 'AN',
-                                                'color': 'blue',
-                                                 'linestyle': '-'}
+                                                'plotdata_dropdown': {'0': 'AN'},
+                                                'color': {'0': 'black'},
+                                                 'linestyle': {'0':'-'}}
             self.variables = self.master.config['Simple Plot'][ID]
         
         px = 1/plt.rcParams['figure.dpi']
@@ -277,12 +435,16 @@ class SimplePlotWidget(MatplotImage):
         self.view = gui.MenuItem('Simple Plot ' + str(ID), width=100, height=30)
         self.view.onclick.do(self.view_pressed)
         
-        # Define widget contentpyt
+        # Define widget content
         self.ax = self.fig.add_subplot(1,1,1)
         self.redraw()
         
-        self.plot_data = self.master.processingfiles.plot_data[self.variables['plotdata_dropdown']]
+        # TODO fix this
+        self.plot_data = {}
+        for key in self.variables['plotdata_dropdown'].keys():
+            self.plot_data[key] = self.master.processingfiles.plot_data['1D'][self.variables['plotdata_dropdown'][key]]
     
+        # View Dialog
         self.view_dialog = gui.GenericDialog(title='Simple Plot ' + str(self.ID), message='Click Ok to transfer content to main page', width='500px')
         
         self.mpi_check = gui.CheckBox(self.variables['mpi_check'], width=200, height=30)
@@ -309,52 +471,45 @@ class SimplePlotWidget(MatplotImage):
         self.remove_check = gui.CheckBox(False, width=200, height=30)
         self.view_dialog.add_field_with_label('remove_check', 'Remove Instance', self.remove_check)
         
-        self.update_fig_btn = gui.Button('Update Figure', width=200, height=30, margin='10px')
-        self.view_dialog.add_field_with_label('update_fig_btn', 'Update Figure', self.update_fig_btn)
-        self.update_fig_btn.onclick.do(self.update_fig_btn_pressed)
         
-        self.colorpicker = gui.ColorPicker(self.variables['color'], width=200, height=20, margin='10px')
-        self.view_dialog.add_field_with_label('colorpicker', 'Color', self.colorpicker)
+        # Tabbing for multiple data sources
+        self.tabbox = LinePlotDataTabbox(self.master, self.variables)
         
-        self.linestyle_dropdown = gui.DropDown.new_from_list(['-', '--', '-.', '.', '.-'], width=200, height=20)
-        self.linestyle_dropdown.select_by_value(self.variables['linestyle'])
-        self.view_dialog.add_field_with_label('linestyle_dropdown', 'Choose linestyle', self.linestyle_dropdown)
+        self.add_datasource_btn = gui.Button('Add datasource', width=200, height=30, margin='10px')
+        self.view_dialog.add_field_with_label('add_datasource_btn', 'Add datasource', self.add_datasource_btn)
+        self.add_datasource_btn.onclick.do(self.tabbox.add_tab)
         
-        self.plotdata_dropdown = gui.DropDown.new_from_list(self.master.processingfiles.plot_data.keys(), width=200, height=20)
-        self.plotdata_dropdown.select_by_value(self.variables['plotdata_dropdown'])
-        self.plotdata_dropdown.onchange.do(self.plotdata_dropdown_changed)
-        self.view_dialog.add_field_with_label('plotdata_dropdown', 'Choose plotdata source', self.plotdata_dropdown)
+        self.remove_datasource_btn = gui.Button('Remove datasource', width=200, height=30, margin='10px')
+        self.view_dialog.add_field_with_label('remove_datasource_btn', 'Remove datasource', self.remove_datasource_btn)
+        self.remove_datasource_btn.onclick.do(self.tabbox.remove_tab)
         
-        #self.add_plotdata_btn = gui.Button('Add plotdata source', width=200, height=30, margin='10px')
-        #self.view_dialog.add_field_with_label('add_plotdata_btn', 'Add plotdata source', self.add_plotdata_btn)
-        #self.add_plotdata_btn.onclick.do(self.add_plotdata_btn_pressed)
+        self.view_dialog.add_field('tabbox', self.tabbox)
         
         self.view_dialog.confirm_dialog.do(self.update_view)
-        
-    ##def add_plotdata_btn_pressed(self, widget):
         
         
     def view_pressed(self, widget):
         self.view_dialog.show(self.master)
         
-    def plotdata_dropdown_changed(self, widget, new_selection):
-        self.plot_data = self.master.processingfiles.plot_data[new_selection]
-        self.update_plot()
-        
     def update_plot(self):
         self.ax.clear()
         
-        # TODO: fix to make generic
-        if self.plotdata_dropdown.get_value() == 'fit':
-            self.ax.plot(self.plot_data['data'][1], self.plot_data['data'][-1], self.variables['linestyle'], color=self.variables['color'])
-            self.ax.plot(self.plot_data['data'][0], '.', color='black')
-        else:
-            self.ax.plot(self.plot_data['data'], self.variables['linestyle'], color=self.variables['color'])
-        self.ax.set_ylabel(self.plot_data['ylabel'])
+        for key in self.plot_data.keys():
+            x = self.plot_data[key]['data']['x']
+            y = self.plot_data[key]['data']['y']
+            label = self.plot_data[key]['label']
+            
+            if x is None:
+                self.ax.plot(y, self.variables['linestyle'][key], color=self.variables['color'][key], label=label)
+            else:
+                self.ax.plot(x, y, self.variables['linestyle'][key], color=self.variables['color'][key], label=label)
+            
         if not self.variables['xlim_check']:
             self.ax.set_xlim(*self.variables['xlim'])
         if not self.variables['ylim_check']:
             self.ax.set_ylim(*self.variables['ylim'])
+            
+        self.ax.legend()
         self.redraw()                          
     
     def update_view(self, widget):
@@ -372,8 +527,6 @@ class SimplePlotWidget(MatplotImage):
             self.master.main_container.remove_pane(self)
             
         self.update_plot()
-        #self.ax.set_xlim(self.variables['xmin'], self.variables['xmax'])
-        #self.ax.set_ylim(self.variables['ymin'], self.variables['ymax'])
         
     def update_variables(self):
         self.variables['mpi_check'] = self.mpi_check.get_value()
@@ -385,23 +538,27 @@ class SimplePlotWidget(MatplotImage):
         self.variables['xlim'] = tuple(map(float, self.xlim_text.get_value().split(',')))
         self.variables['ylim_check'] = self.ylim_check.get_value()
         self.variables['ylim'] = tuple(map(float, self.ylim_text.get_value().split(',')))
-        self.variables['color'] = self.colorpicker.get_value()
-        self.variables['linestyle'] = self.linestyle_dropdown.get_value()
-        self.variables['plotdata_dropdown'] = self.plotdata_dropdown.get_value()
+        
+        self.plot_data = {}
+        print('plotdata_dropdown: ', self.variables['plotdata_dropdown'].keys())
+        for key in self.variables['plotdata_dropdown'].keys():
+            data_val = self.tabbox.get_child(key).get_child('plot_data').get_value()
+            
+            self.variables['plotdata_dropdown'][key] = data_val
+            self.plot_data[key] = self.master.processingfiles.plot_data['1D'][data_val]
+            
+            self.variables['color'][key] = self.tabbox.get_child(key).get_child('color').get_value()
+            self.variables['linestyle'][key] = self.tabbox.get_child(key).get_child('linestyle').get_value()
+            
+        
     
     def clear_btn_pressed(self, widget):
-        #self.plot_data = []
-        self.ax.clear()
-        self.redraw()
+        for key in self.plot_data.keys():
+            self.plot_data[key]['data']['y'] = []
+            
+            if self.plot_data[key]['data']['x'] is not None:
+                self.plot_data[key]['data']['x'] = []
         
-    def update_fig_btn_pressed(self, widget):
-        
-        px = 1/plt.rcParams['figure.dpi']
-        
-        figsize = (gui.from_pix(self.style['width'])*px, gui.from_pix(self.style['height'])*px)
-        self.fig.set_size_inches(figsize)
-        print('new figsize ', figsize)
-        self.update_plot()
         
 DATA_DIR = '.'
 class ProcessingFiles(ProcessingFilesBackEnd):
@@ -431,14 +588,14 @@ class ProcessingFiles(ProcessingFilesBackEnd):
             atomroi, refroi = self.master.main_container.get_child('Camera View').get_rois()
             if self.do_processing(self.directory.directories, self.fileLists, atomroi, refroi, AN_func=self.AN.func, T_func=self.T.func):
                 self.update_plots()
-            time.sleep(0.5)
-            print(atomroi, refroi)
+                
+            for i in range(5):
+                self.master.progress.set_value(i)
+                time.sleep(0.1)
+                
             
                     
     def update_plots(self):
-        #for ID in self.master.config['Camera View']:
-        #        cv = self.master.main_container.get_child('Camera View ' + str(ID))
-        #        cv.mpi_roi.update_plot()
         
         for ID in self.master.config['Simple Plot']:
                 sp = self.master.main_container.get_child('Simple Plot ' + str(ID))

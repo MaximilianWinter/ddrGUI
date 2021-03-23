@@ -47,10 +47,10 @@ class MatplotImage(gui.Image):
 
         return [data, {'Content-type': 'image/png'}]
     
-    #def update_fig(self):
-    #    px = 1/plt.rcParams['figure.dpi']
-    #    
-    #    figsize = (gui.from_pix(self.style['width'])*px, gui.from_pix(self.style['height'])*px)
-    #    self.fig.set_size_inches(figsize)
-
-    #    print('update fig ', figsize)
+    def update_fig(self):
+        px = 1/plt.rcParams['figure.dpi']
+        
+        figsize = (gui.from_pix(self.style['width'])*px, gui.from_pix(self.style['height'])*px)
+        self.fig.set_size_inches(figsize)
+        self.redraw()
+        print('update fig ', figsize)
