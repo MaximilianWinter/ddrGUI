@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Thu Mar 11 18:11:16 2021
 
@@ -16,13 +15,20 @@ todo:
     9. make camview resizeable; done
     10. find/fix dragging issue of camview
     11. add try/except for init for each widget
+    12. resize ROIs automatically
 """
 from remi import gui, App, start
-from CustomWidgets import CameraView, SimplePlotWidget, FloatingPanesContainer, ProcessingFiles, AtomnumberTemperatureWidget
+
+from CameraView import CameraView
+from SimplePlotWidget import SimplePlotWidget
+from FloatingPanesContainer import FloatingPanesContainer
+from ProcessingFiles import ProcessingFiles
+from AtomnumberTemperatureWidget import AtomnumberTemperatureWidget
+
 from threading import Thread
 import json
         
-class MyApp(App):
+class CamWebGUI(App):
     
     def __init__(self, *args):
         try:
@@ -58,7 +64,7 @@ class MyApp(App):
                            '2D Gaussian': {'symmetric_check': False, 'axes_aligned_check': False},
                            'Atom Number': {'AN_dropdown': 'default'},
                            'Temperature': {'T_dropdown': 'Long Dipole Trap'}}
-        super(MyApp, self).__init__(*args)
+        super(CamWebGUI, self).__init__(*args)
         
         
     def main(self):
@@ -157,29 +163,14 @@ class MyApp(App):
         
         self.save_pressed()
         
-        super(MyApp, self).on_close()
+        super(CamWebGUI, self).on_close()
     
 
 if __name__ == "__main__":
     # starts the webserver
     # optional parameters
     # start(MyApp,address='127.0.0.1', port=8081, multiple_instance=False,enable_file_cache=True, update_interval=0.1, start_browser=True)
-    start(MyApp, debug=False, address='130.183.94.217', port=8081, start_browser=False, multiple_instance=False)        
+    start(CamWebGUI, debug=False, address='130.183.94.217', port=8081, start_browser=False, multiple_instance=False)        
     #start(MyApp, debug=False, address='192.1.2.20', port=8081, start_browser=False, multiple_instance=False) 
     #start(MyApp, debug=False, address='0.0.0.0', port=8081, start_browser=False, multiple_instance=False)        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
         

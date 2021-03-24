@@ -17,7 +17,7 @@ import datetime
 import os
 from backend import ProcessingFilesBackEnd
 from utils import getAtomNumber, estimateTemperatureLongDipoletrap
-from FloatingPanesContainer import FloatingPanesContainer, FloatingPanesMPI
+from FloatingPanesContainer import FloatingPanesContainer
 import time
 
 class GenericWidgetClass():
@@ -77,99 +77,6 @@ class GenericWidgetClass():
         else:
             self.container.add_child('progress', self.progress)
 
-
-class MatplotImageROINew(FloatingPanesMPI):
-    """
-    MatplotImage widget with two ROIS
-    
-    """
-    
-    def __init__(self, master, variables, **kwargs):
-        super(MatplotImageROINew, self).__init__(master.main_container,**kwargs)
-        self.variables = variables
-    
-        self.atomroi = gui.Container(width=self.variables['atomroi']['w'], height=self.variables['atomroi']['h'])
-        self.atomroi.style['background-color'] = 'transparent'
-        self.atomroi.style['border'] = '2px solid white'
-        
-        self.refroi = gui.Container(width=self.variables['refroi']['w'], height=self.variables['refroi']['h'])
-        self.refroi.style['background-color'] = 'transparent'
-        self.refroi.style['border'] = '2px dotted white'
-        
-        self.mpi_im = MatplotImage(figsize=(7.5,7.5), **kwargs)
-        self.ax_im = self.mpi_im.fig.add_subplot(1,1,1)
-        self.plot_data = np.zeros((512,512))
-        self.im = self.ax_im.imshow(self.plot_data, vmin = self.variables['vmin'], vmax = self.variables['vmax'])
-        self.cbar = plt.colorbar(self.im, ax=self.ax_im)
-        self.mpi_im.redraw()
-        self.append(self.mpi_im)
-        self.add_pane(self.atomroi, self.variables['atomroi']['x'], self.variables['atomroi']['y'])
-        self.add_pane(self.refroi, self.variables['refroi']['x'], self.variables['refroi']['y'])
-        
-        
-    def update_plot(self):
-        # make stable for empty plot_data['data']
-        self.im = self.ax_im.imshow(self.plot_data['data'][0], vmin = self.variables['vmin'], vmax = self.variables['vmax'])
-        self.cbar.remove()
-        self.cbar = plt.colorbar(self.im, ax=self.ax_im)
-        self.mpi_im.redraw()
-        
-    def get_rois(self, as_dict=False):
-        if as_dict:
-            x, y, w, h = self.get_roi_from_panel(self.atomroi)
-            atomroi = {'x': x, 'y': y, 'w': w, 'h': h}
-            
-            x, y, w, h = self.get_roi_from_panel(self.refroi)
-            refroi = {'x': x, 'y': y, 'w': w, 'h': h}
-            
-            return atomroi, refroi
-        else:
-            return self.get_roi_from_panel(self.atomroi), self.get_roi_from_panel(self.refroi)
-    def get_rois_px(self, as_dict=False):
-        
-        atomroi = {'x': gui.from_pix(self.atomroi.style['left']),
-                    'y': gui.from_pix(self.atomroi.style['top']),
-                    'w': gui.from_pix(self.atomroi.style['width']),
-                    'h': gui.from_pix(self.atomroi.style['height'])}
-        
-        refroi = {'x': gui.from_pix(self.refroi.style['left']),
-                    'y': gui.from_pix(self.refroi.style['top']),
-                    'w': gui.from_pix(self.refroi.style['width']),
-                    'h': gui.from_pix(self.refroi.style['height'])}
-        
-        if as_dict:
-            return atomroi, refroi
-        else:
-            return atomroi.values(), refroi.values()
-        
-
-    def get_roi_from_panel(self, panel):
-        """
-        works if ax is used with imshow
-        
-        returns x, y, w, h (all ints, in data coordinates)
-        
-        :                +------------------+
-        :                |                  |
-        :              height               |
-        :                |                  |
-        :               (xy)---- width -----+
-        
-        """
-        
-        fig_w, fig_h = self.mpi_im.fig.canvas.get_width_height()
-        
-        w, h = gui.from_pix(panel.style['width']), gui.from_pix(panel.style['height'])
-        x, y = gui.from_pix(panel.style['left']), fig_h - (gui.from_pix(panel.style['top']) + h)
-        
-        x0, y0 = self.ax_im.transData.transform((0, 0))
-        inv = self.ax_im.transData.inverted()
-        
-        roi = [int(i) for i in inv.transform([x, y, w+x0, h+y0])]
-        roi[1] = roi[1]+roi[-1] # TODO: more elegant solution
-        roi[-1] *= -1
-        
-        return roi
             
 class MatplotImageROI(FloatingPanesContainer):
     """
@@ -189,7 +96,8 @@ class MatplotImageROI(FloatingPanesContainer):
         self.refroi.style['background-color'] = 'transparent'
         self.refroi.style['border'] = '2px dotted white'
         
-        self.mpi_im = MatplotImage(figsize=(7.5,7.5), **kwargs)
+        self.mpi_im = MatplotImage(**kwargs)
+        self.mpi_im.update_fig()
         self.ax_im = self.mpi_im.fig.add_subplot(1,1,1)
         self.plot_data = np.zeros((512,512))
         self.im = self.ax_im.imshow(self.plot_data, vmin = self.variables['vmin'], vmax = self.variables['vmax'])
@@ -205,6 +113,7 @@ class MatplotImageROI(FloatingPanesContainer):
         self.im = self.ax_im.imshow(self.plot_data['data'][0], vmin = self.variables['vmin'], vmax = self.variables['vmax'])
         self.cbar.remove()
         self.cbar = plt.colorbar(self.im, ax=self.ax_im)
+        self.ax_im.set_title(self.plot_data['path'],fontsize=7,pad=12)
         self.mpi_im.redraw()
         
     def get_rois(self, as_dict=False):
@@ -340,15 +249,10 @@ class CameraView(MatplotImageROI):
         self.mpi_im.style['height'] = self.style['height']                                      
         self.mpi_im.update_fig()
         
-    def unselect_panes(self):
-        print('unselect panes')
-        self.resizeHelper.setup(None,None)
-        self.dragHelper.setup(None,None)
-        
-    #def update_plot(self):
-        #self.ax_im.clear()
-        #self.ax_im.imshow(self.plot_data['data'][0], vmin=self.variables['vmin'], vmax=self.variables['vmax'])
-        #self.mpi_im.redraw()
+    # def unselect_panes(self): # tried to improve dragging and scaling of camview after rois are selected
+    #     print('unselect panes')
+    #     self.update_pane(self.atomroi)
+    #     self.update_pane(self.refroi)
         
 class LinePlotDataTabbox(gui.TabBox):
     
@@ -432,11 +336,12 @@ class SimplePlotWidget(MatplotImage):
         super(SimplePlotWidget, self).__init__(figsize=figsize, style=style, **kwargs)
         
         # Define Menu Items        
-        self.view = gui.MenuItem('Simple Plot ' + str(ID), width=100, height=30)
+        self.view = gui.MenuItem('Simple Plot ' + ID, width=100, height=30)
         self.view.onclick.do(self.view_pressed)
         
         # Define widget content
         self.ax = self.fig.add_subplot(1,1,1)
+        self.ax.set_title('Simple Plot ' + ID)
         self.redraw()
         
         # TODO fix this
@@ -445,7 +350,7 @@ class SimplePlotWidget(MatplotImage):
             self.plot_data[key] = self.master.processingfiles.plot_data['1D'][self.variables['plotdata_dropdown'][key]]
     
         # View Dialog
-        self.view_dialog = gui.GenericDialog(title='Simple Plot ' + str(self.ID), message='Click Ok to transfer content to main page', width='500px')
+        self.view_dialog = gui.GenericDialog(title='Simple Plot ' + self.ID, message='Click Ok to transfer content to main page', width='500px')
         
         self.mpi_check = gui.CheckBox(self.variables['mpi_check'], width=200, height=30)
         self.view_dialog.add_field_with_label('mpi_check', 'Visible', self.mpi_check)
@@ -509,6 +414,7 @@ class SimplePlotWidget(MatplotImage):
         if not self.variables['ylim_check']:
             self.ax.set_ylim(*self.variables['ylim'])
             
+        self.ax.set_title('Simple Plot ' + self.ID)
         self.ax.legend()
         self.redraw()                          
     
@@ -522,7 +428,7 @@ class SimplePlotWidget(MatplotImage):
         self.update_variables()
         
         if self.variables['mpi_check']:
-            self.master.main_container.add_pane(self, self.variables['x'],self.variables['y'], 'Simple Plot ' + str(self.ID))
+            self.master.main_container.add_pane(self, self.variables['x'],self.variables['y'], 'Simple Plot ' + self.ID)
         else:
             self.master.main_container.remove_pane(self)
             
@@ -558,7 +464,96 @@ class SimplePlotWidget(MatplotImage):
             
             if self.plot_data[key]['data']['x'] is not None:
                 self.plot_data[key]['data']['x'] = []
+       
         
+class AtomnumberTemperatureWidget(MatplotImage):
+    
+    def __init__(self, master, name, style={'width': '500', 'height': '200', 'position':'absolute', 'border': '2px solid grey'}, **kwargs):
+        self.master = master
+        self.name = name        
+        
+        try:
+            self.variables = self.master.config[name]
+        except:
+            self.master.config[name] = {'visible': True,
+                                                  'width': 500,
+                                                  'height': 200,
+                                                'x': 0,
+                                                'y': 680,
+                                                }
+            self.variables = self.master.config[name]
+        
+        px = 1/plt.rcParams['figure.dpi']
+        style['width'], style['height'] = gui.to_pix(self.variables['width']), gui.to_pix(self.variables['height']) 
+        figsize = (self.variables['width']*px, self.variables['height']*px)
+        super(AtomnumberTemperatureWidget, self).__init__(figsize=figsize, style=style, **kwargs)
+        
+
+        
+        # Content
+        self.ax = self.fig.add_subplot(1,1,1)
+        self.update_plot()
+        self.redraw()
+        
+        # Define Menu Items        
+        self.view = gui.MenuItem(self.name, width=100, height=30)
+        self.view.onclick.do(self.view_pressed)
+        
+        # View dialog
+        self.view_dialog = gui.GenericDialog(title=self.name, message='Click Ok to transfer content to main page', width='500px')
+        
+        self.visible = gui.CheckBox(self.variables['visible'], width=200, height=30)
+        self.view_dialog.add_field_with_label('visible', 'Visible', self.visible)
+        
+        self.view_dialog.confirm_dialog.do(self.update_view)
+    
+    def update_variables(self):
+        self.variables['visible'] = self.visible.get_value()
+        self.variables['width'] = gui.from_pix(self.style['width'])
+        self.variables['height'] = gui.from_pix(self.style['height'])
+        self.variables['x'] = gui.from_pix(self.style['left'])
+        self.variables['y'] = gui.from_pix(self.style['top'])
+        
+    def view_pressed(self, widget):
+        self.view_dialog.show(self.master)
+    
+    def update_view(self, widget):
+        
+        self.update_variables()
+        
+        if self.variables['visible']:
+            self.master.main_container.add_pane(self, self.variables['x'],self.variables['y'], self.name)
+        else:
+            self.master.main_container.remove_pane(self)
+            
+        self.update_plot()
+        
+    def update_plot(self):
+        self.ax.clear()
+        fontsize = int(5*gui.from_pix(self.style['width'])/plt.rcParams['figure.dpi'])
+        try:
+            AN = self.master.processingfiles.plot_data['1D']['AN']['data']['y'][-1]
+        except:
+            AN = 0
+        self.ax.text(0,.8, "Atomnumber: {:.2e}".format(AN), fontsize=fontsize)
+        
+        #self.ax.table([["Atomnumber: {:.2e}".format(AN)]])
+        
+        try:
+            T = self.master.processingfiles.plot_data['1D']['T']['data']['y'][-1]
+        except:
+            T = 0
+        self.ax.text(0,.4, u"Temperature: {:.2f} µK".format(T*1e6), fontsize=fontsize)
+        self.ax.axis("off")
+        
+    def update_fig(self):
+        px = 1/plt.rcParams['figure.dpi']
+        
+        figsize = (gui.from_pix(self.style['width'])*px, gui.from_pix(self.style['height'])*px)
+        self.fig.set_size_inches(figsize)
+        self.update_plot()
+        self.redraw()
+        print('update fig ', figsize)
         
 DATA_DIR = '.'
 class ProcessingFiles(ProcessingFilesBackEnd):
@@ -598,11 +593,14 @@ class ProcessingFiles(ProcessingFilesBackEnd):
     def update_plots(self):
         
         for ID in self.master.config['Simple Plot']:
-                sp = self.master.main_container.get_child('Simple Plot ' + str(ID))
+                sp = self.master.main_container.get_child('Simple Plot ' + ID)
                 sp.update_plot()
         
         cv = self.master.main_container.get_child('Camera View')
         cv.update_plot()
+        
+        AN_T = self.master.main_container.get_child('AtomnumberTemperature')
+        AN_T.update_plot()
                 
 class AtomNumberWidget():
     
@@ -672,6 +670,7 @@ class TemperatureWidget():
     
     def T_dropdown_changed(self, widget, chosen_T):
         pass
+    
 
 class FitsWidget():
     
