@@ -105,7 +105,7 @@ def estimateTemperatureLongDipoletrap(img_array, time_of_flight, pixel_size_at_a
     	#plt.show()
     except:
         traceback.print_exception(*sys.exc_info())
-        return 0
+        return 0, (None, None, None)
     sigma = popt[2]*pixel_size_at_atoms
     print(sigma)
     T = sigma**2 / time_of_flight**2 * m/kB - initial_cloud_size**2

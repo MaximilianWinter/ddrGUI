@@ -38,6 +38,13 @@ class ResizeHelper(gui.Widget, gui.EventSource):
                 pass
         if newParent==None:
             return
+        
+        
+        try:
+            refWidget.style['z-index'] = '1' # bring new selected widget to front
+            self.refWidget.style['z-index'] = '0' # bring old selected widget to back
+        except:
+            pass
         self.parent = newParent
         self.refWidget = refWidget
         try:

@@ -7,14 +7,14 @@ todo:
     1. add ax labels, xlim, ylim, linestyle, color for Simple Plot; done
     2. add fit plot, add plotsources in simple plot; done
     3. automatic figure update when resized; done
-    4. use class with view for AN/T function choices
+    4. use class with view for AN/T function choices # TODO
     5. add animation when loop is running; done
     6. add Text Widget for AN, T; done
-    7. bring widget to front when selected
+    7. bring widget to front when selected; done
     8. add plot title; done
     9. make camview resizeable; done
     10. find/fix dragging issue of camview
-    11. add try/except for init for each widget
+    11. add try/except for init for each widget; done
     12. resize ROIs automatically
 """
 from remi import gui, App, start
@@ -35,35 +35,8 @@ class CamWebGUI(App):
             with open('config.json', 'r') as f:
                 self.config = json.load(f)
         except:
-            self.config = {'Camera View': {'atomroi': {'x': 100, 'y': 100, 'w': 100, 'h': 100},
-                                                 'refroi': {'x': 200, 'y': 100, 'w': 100, 'h': 100},
-                                                  'mpi_check': True,
-                                                  'width': 550,
-                                                  'height': 550,
-                                                  'x': 0,
-                                                  'y': 35,
-                                                  'vmin': 0,
-                                                  'vmax': 1},
-                           'Simple Plot': {'0':   {'mpi_check': True,
-                                                 'width': 1200,
-                                                 'height': 300,
-                                                'x': 0,
-                                                'y': 685,
-                                                'xlim_check': True,
-                                                'xlim':(0,1),
-                                                'ylim_check': True,
-                                                'ylim':(0,1),
-                                                'plotdata_dropdown': {'0': 'AN'},
-                                                'color': {'0': 'black'},
-                                                 'linestyle': {'0':'-'}}},
-                           'Processing Files': {},
-                           'Directory': {'selected_directories': ['.'],
-                                                'today_dir_check_val': False},
-                           'Fits': {},
-                           '1D Gaussian': {'symmetric_check': True, 'axes_aligned_check': False},
-                           '2D Gaussian': {'symmetric_check': False, 'axes_aligned_check': False},
-                           'Atom Number': {'AN_dropdown': 'default'},
-                           'Temperature': {'T_dropdown': 'Long Dipole Trap'}}
+            self.config = {}
+            
         super(CamWebGUI, self).__init__(*args)
         
         
@@ -114,10 +87,11 @@ class CamWebGUI(App):
         self.main_container.add_pane(camview, self.config['Camera View']['x'], self.config['Camera View']['y'], 'Camera View')
         #self.main_container.add_pane(camview.mpi_im, self.config['Camera View']['x'], self.config['Camera View']['y'], 'Camera View')
         
-        for ID in self.config['Simple Plot'].keys():
-            simpleplot = SimplePlotWidget(self, ID)
-            self.view.append(simpleplot.view)
-            self.main_container.add_pane(simpleplot, self.config['Simple Plot'][ID]['x'], self.config['Simple Plot'][ID]['y'], 'Simple Plot ' + str(ID))
+        if 'Simple Plot' in self.config.keys():
+            for ID in self.config['Simple Plot'].keys():
+                simpleplot = SimplePlotWidget(self, ID)
+                self.view.append(simpleplot.view)
+                self.main_container.add_pane(simpleplot, self.config['Simple Plot'][ID]['x'], self.config['Simple Plot'][ID]['y'], 'Simple Plot ' + str(ID))
             
         return self.main_container
     
@@ -127,13 +101,10 @@ class CamWebGUI(App):
         try:
             ID = str(int(max(self.config['Simple Plot'].keys())) + 1)
         except:
-            print('here: ', self.config['Simple Plot'].keys())
             ID = '0'
-        print('ID: ', ID)
-        print(self.config['Simple Plot'].keys())
         simpleplot = SimplePlotWidget(self, ID)
         self.view.append(simpleplot.view)
-        self.main_container.add_pane(simpleplot, 0, 680, 'Simple Plot ' + ID)
+        self.main_container.add_pane(simpleplot, self.config['Simple Plot'][ID]['x'], self.config['Simple Plot'][ID]['y'], 'Simple Plot ' + ID)
         
     def start_stop_btn_pressed(self, widget):
         if self.processingfiles.running:

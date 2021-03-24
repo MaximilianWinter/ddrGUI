@@ -72,18 +72,20 @@ class SimplePlotWidget(MatplotImage):
         try:
             self.variables = self.master.config['Simple Plot'][ID]
         except:
-            self.master.config['Simple Plot'][ID] = {'mpi_check': True,
-                                                 'width': 1200,
-                                                 'height': 300,
-                                                'x': 0,
-                                                'y': 680,
-                                                'xlim_check': True,
-                                                'xlim':(0,1),
-                                                'ylim_check': True,
-                                                'ylim':(0,1),
-                                                'plotdata_dropdown': {'0': 'AN'},
-                                                'color': {'0': 'black'},
-                                                 'linestyle': {'0':'-'}}
+            if not('Simple Plot' in self.master.config.keys()):
+                self.master.config['Simple Plot'] = {}
+            self.master.config['Simple Plot'][ID] = {   'mpi_check':            True,
+                                                        'width':                1200,
+                                                        'height':               300,
+                                                        'x':                    0,
+                                                        'y':                    680,
+                                                        'xlim_check':           True,
+                                                        'xlim':                 (0,1),
+                                                        'ylim_check':           True,
+                                                        'ylim':                 (0,1),
+                                                        'plotdata_dropdown':    {'0': 'AN'},
+                                                        'color':                {'0': 'black'},
+                                                         'linestyle':           {'0':'-'}}
             self.variables = self.master.config['Simple Plot'][ID]
         
         px = 1/plt.rcParams['figure.dpi']

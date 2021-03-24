@@ -19,7 +19,12 @@ class AtomNumberWidget():
     def __init__(self, master, name):
         self.master = master
         self.name = name
-        self.variables = self.master.config[name]
+        
+        try:
+            self.variables = self.master.config[name]
+        except:
+            self.master.config[name] = {'AN_dropdown': 'default'}
+            self.variables = self.master.config[name]
         
         # Define Menu Items
         self.settings = gui.MenuItem(name, width=100, height=30)
@@ -54,7 +59,12 @@ class TemperatureWidget():
     def __init__(self, master, name):
         self.master = master
         self.name = name
-        self.variables = self.master.config[name]
+        
+        try:
+            self.variables = self.master.config[name]
+        except:
+            self.master.config[name] = {'T_dropdown': 'Long Dipole Trap'}
+            self.variables = self.master.config[name]
         
         # Define Menu Items
         self.settings = gui.MenuItem(name, width=100, height=30)
@@ -88,7 +98,13 @@ class DirectoryWidget():
     def __init__(self, master, name):
         self.master = master
         self.name = name
-        self.variables = self.master.config[name]
+        
+        try:
+            self.variables = self.master.config[name]
+        except:
+            self.master.config[name] = {    'selected_directories':     ['.'],
+                                            'today_dir_check_val':      False}
+            self.variables = self.master.config[name]
         
         # Define Menu Items        
         self.settings = gui.MenuItem(name, width=100, height=30)
@@ -158,7 +174,6 @@ class ProcessingFiles(ProcessingFilesBackEnd):
         super(ProcessingFiles, self).__init__()
         self.master = master
         self.name = name
-        self.variables = self.master.config[name]
         self.settings = gui.MenuItem(name, width=100, height=30)
         
         self.directory = DirectoryWidget(self.master, 'Directory')        

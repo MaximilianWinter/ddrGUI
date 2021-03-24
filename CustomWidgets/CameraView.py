@@ -119,15 +119,15 @@ class CameraView(MatplotImageROI):
         try:
             self.variables = self.master.config[self.name]
         except:
-            self.master.config[self.name] = {'atomroi': {'x': 100, 'y': 100, 'w': 100, 'h': 100},
-                                                     'refroi': {'x': 200, 'y': 100, 'w': 100, 'h': 100},
-                                                     'mpi_check': True,
-                                                     'width': 550,
-                                                     'height': 550,
-                                                     'x': 0,
-                                                     'y': 30,
-                                                     'vmin': 0,
-                                                     'vmax': 1}
+            self.master.config[self.name] = {   'atomroi':      {'x': 100, 'y': 100, 'w': 100, 'h': 100},
+                                                'refroi':       {'x': 200, 'y': 100, 'w': 100, 'h': 100},
+                                                'mpi_check':    True,
+                                                'width':        550,
+                                                'height':       550,
+                                                'x':            0,
+                                                'y':            35,
+                                                'vmin':         0,
+                                                'vmax':         1}
             
             self.variables = self.master.config[self.name]
         
