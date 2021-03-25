@@ -69,9 +69,8 @@ class ResizeHelper(gui.Widget, gui.EventSource):
         
         try:
             self.refWidget.update_fig()
-            print('updating figure')
         except:
-            print('no figure for updating')
+            pass
 
     @gui.decorate_event
     def on_drag(self, emitter, x, y):
@@ -150,10 +149,6 @@ class DragHelper(gui.Widget, gui.EventSource):
     @gui.decorate_event
     def on_drag(self, emitter, x, y):
         if self.active:
-            # try:
-            #     self.refWidget.unselect_panes()
-            # except:
-            #     print('nope')
             if self.origin_x == -1:
                 self.origin_x = float(x)
                 self.origin_y = float(y)

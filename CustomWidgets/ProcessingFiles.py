@@ -9,7 +9,7 @@ from remi import gui
 import datetime
 import os
 from backend import ProcessingFilesBackEnd
-from utils import getAtomNumber, estimateTemperatureLongDipoletrap
+from utils import getAtomNumber, estimateTemperatureLongDipoletrap, estimateTemperature2DGaussian
 import time
 
 DATA_DIR = '.'
@@ -70,28 +70,133 @@ class TemperatureWidget():
         self.settings = gui.MenuItem(name, width=100, height=30)
         self.settings.onclick.do(self.settings_pressed)
         
-        self.available_T_funcs = {'Long Dipole Trap' : estimateTemperatureLongDipoletrap}
-        self.func = self.available_T_funcs[self.variables['T_dropdown']]
+        
+        # Widgets:
+        self.longdipoletrap = LongDipoleTrapWidget(self.master, 'Long Dipole Trap')
+        self.longdipoletrap2D = LongDipoleTrap2DWidget(self.master, 'Long Dipole Trap 2D')
+        
+        self.available_T_widgets = {self.longdipoletrap.name: self.longdipoletrap,
+                                    self.longdipoletrap2D.name: self.longdipoletrap2D}        
+        self.T_widget = self.available_T_widgets[self.variables['T_dropdown']]
     
+        self.func = self.T_widget.estimate_temperature
+        
     def settings_pressed(self, widget):
         self.T_menu_dialog = gui.GenericDialog(title=self.name + ' Menu', message='Click Ok to transfer content to main page', width='500px')
         
-        self.T_dropdown = gui.DropDown.new_from_list(self.available_T_funcs.keys(),
+        self.T_dropdown = gui.DropDown.new_from_list(self.available_T_widgets.keys(),
                                                     width=200, height=20)
         self.T_dropdown.select_by_value(self.variables['T_dropdown'])
         self.T_dropdown.onchange.do(self.T_dropdown_changed)
         self.T_menu_dialog.add_field_with_label('T_dropdown', 'Choose T function', self.T_dropdown)
         
+        self.T_menu_dialog.add_field_with_label(self.T_widget.name, 'Choose guess params:', self.T_widget)
+        
         self.T_menu_dialog.confirm_dialog.do(self.update_T_menu)
         self.T_menu_dialog.show(self.master)
         
     def update_T_menu(self, widget):
-        self.variables['T_dropdown'] = self.T_dropdown.get_value()
+        self.T_widget.update_variables()
         
-        self.func = self.available_T_funcs[self.T_dropdown.get_value()]
+        self.func = self.T_widget.estimate_temperature
     
     def T_dropdown_changed(self, widget, chosen_T):
-        pass
+        self.T_menu_dialog.container.remove_child(self.T_menu_dialog.container.get_child(self.T_widget.name))
+        
+        self.variables['T_dropdown'] = self.T_dropdown.get_value()
+        self.T_widget = self.available_T_widgets[self.variables['T_dropdown']]
+        
+        self.T_menu_dialog.add_field_with_label(self.T_widget.name, 'Choose guess params:', self.T_widget)
+
+class InputLabel(gui.HBox):
+    
+    def __init__(self, label='Input', input_type='number', default_value='', **kwargs):
+        super(InputLabel, self).__init__(**kwargs)
+        
+        self.label = gui.Label(label)
+        self.input = gui.Input(input_type, default_value, width=200, height=30, margin='10px')
+        
+        self.append(self.label, 'label')
+        self.append(self.input, 'input')
+        
+        self.set_value = self.input.set_value
+        self.get_value = self.input.get_value
+        
+        
+class DropDownLabel(gui.HBox):
+    
+    def __init__(self, label='DropDown', items=[''], default='', **kwargs):
+        super(DropDownLabel, self).__init__(**kwargs)
+        
+        self.label = gui.Label(label)
+        self.dropdown = gui.DropDown.new_from_list(items, width=200, height=30, margin='10px')
+        self.dropdown.select_by_value(default)
+        
+        self.append(self.label, 'label')
+        self.append(self.dropdown, 'dropdown')
+        
+        self.get_value = self.dropdown.get_value
+        self.set_value = self.dropdown.set_value
+        
+class LongDipoleTrapWidget(gui.Container):
+    
+    def __init__(self, master, name, **kwargs):
+        self.master = master
+        self.name = name
+        super(LongDipoleTrapWidget, self).__init__(**kwargs)
+        
+        try:
+            self.variables = self.master.config[name]
+        except:
+            self.master.config[name] = {'axis': 1,
+                                        'p0': [3, 500]}
+            self.variables = self.master.config[name]
+        
+        self.axis = DropDownLabel('Axis: ', ['0','1'],'1', width=200, height=20)
+        self.s_0 = InputLabel(label='sigma: ',input_type='number', default_value=str(self.variables['p0'][0]))
+        self.off_0 = InputLabel(label='offset: ', input_type='number', default_value=str(self.variables['p0'][1]))
+        
+        self.append(self.axis, 'axis')
+        self.append(self.s_0, 's_0')
+        self.append(self.off_0, 'off_0')
+        
+    def update_variables(self):
+        self.variables['axis'] = int(self.axis.get_value())
+        self.variables['p0'] = [self.s_0.get_value(), self.off_0.get_value()]
+        
+    def estimate_temperature(self, *args):
+        return estimateTemperatureLongDipoletrap(*args,axis=self.variables['axis'], p0 = [float(i) for i in self.variables['p0']])
+    
+class LongDipoleTrap2DWidget(gui.Container):
+    
+    def __init__(self, master, name, **kwargs):
+        self.master = master
+        self.name = name
+        super(LongDipoleTrap2DWidget, self).__init__(**kwargs)
+        
+        try:
+            self.variables = self.master.config[name]
+        except:
+            self.master.config[name] = {'p0':[0,50,10,500]}
+            self.variables = self.master.config[name]
+        
+        
+        self.theta = InputLabel(label='theta', input_type='number', default_value=str(self.variables['p0'][0]), width=200, height=30, margin='10px')
+        self.sig_x = InputLabel(label='sig_x', input_type='number', default_value=str(self.variables['p0'][1]), width=200, height=30, margin='10px')
+        self.sig_y = InputLabel(label='sig_y', input_type='number', default_value=str(self.variables['p0'][2]), width=200, height=30, margin='10px')
+        self.offset = InputLabel(label='offset', input_type='number', default_value=str(self.variables['p0'][3]), width=200, height=30, margin='10px')
+        
+        self.append(self.theta, 'theta')
+        self.append(self.sig_x, 'sig_x')
+        self.append(self.sig_y, 'sig_y')
+        self.append(self.offset, 'offset')
+        
+    def update_variables(self):
+        self.variables['p0'] = [self.theta.get_value(), self.sig_x.get_value(), self.sig_y.get_value(), self.offset.get_value()]
+        
+    def estimate_temperature(self, *args):
+        return estimateTemperature2DGaussian(*args, p0 = [float(i) for i in self.variables['p0']])
+
     
 class DirectoryWidget():
     
@@ -203,12 +308,18 @@ class ProcessingFiles(ProcessingFilesBackEnd):
                     
     def update_plots(self):
         
-        for ID in self.master.config['Simple Plot']:
+        if 'Simple Plot' in self.master.config.keys():
+            for ID in self.master.config['Simple Plot']:
                 sp = self.master.main_container.get_child('Simple Plot ' + ID)
                 sp.update_plot()
+        
+        if '2D Plot' in self.master.config.keys():
+            for ID in self.master.config['2D Plot']:
+                tdp = self.master.main_container.get_child('2D Plot ' + ID)
+                tdp.update_plot()
         
         cv = self.master.main_container.get_child('Camera View')
         cv.update_plot()
         
-        AN_T = self.master.main_container.get_child('AtomnumberTemperature')
+        AN_T = self.master.main_container.get_child('AN and T')
         AN_T.update_plot()

@@ -90,26 +90,54 @@ def estimateTemperature(img_array, time_of_flight, pixel_size=4.022e-6):
     T = sigma**2 / time_of_flight**2 * m/kB
     return T
 
-def estimateTemperatureLongDipoletrap(img_array, time_of_flight, pixel_size_at_atoms, atomroi, initial_cloud_size):
+def estimateTemperatureLongDipoletrap(img_array, time_of_flight, pixel_size_at_atoms, atomroi, initial_cloud_size, axis=1, p0=[3,500]):
     m = 87 * const['atomic mass constant'][0]
     kB = const['Boltzmann constant'][0]
     x, y, w, h = atomroi
-    data_int = np.mean(img_array[y:y+h, x:x+w], axis=1)
+    data_int = np.mean(img_array[y:y+h, x:x+w], axis=axis)
     try:
-    	fit_func = lambda x, A, x0, s, o: A*np.exp(-(x-x0)**2/(2*s**2)) + o
-    	popt, pcov = curve_fit(fit_func, np.arange(len(data_int)), data_int, [np.max(data_int), np.argmax(data_int), 3, 500])
-    	fit_array = np.linspace(0, len(data_int), 200)
+       	fit_func = lambda x, A, x0, s, o: A*np.exp(-(x-x0)**2/(2*s**2)) + o
+        p0_full = [np.max(data_int), np.argmax(data_int)] + p0
+       	popt, pcov = curve_fit(fit_func, np.arange(len(data_int)), data_int, p0_full)#p0)
+       	fit_array = np.linspace(0, len(data_int), 200)
     	#plt.figure("fit")
     	#plt.plot(np.arange(len(data_int)), data_int, 'b.')
     	#plt.plot(fit_array, fit_func(fit_array, *popt), 'k-')
     	#plt.show()
     except:
         traceback.print_exception(*sys.exc_info())
-        return 0, (None, None, None)
+        print('fit failed')
+        return 0, ([], [], []), '1D'
     sigma = popt[2]*pixel_size_at_atoms
     print(sigma)
     T = sigma**2 / time_of_flight**2 * m/kB - initial_cloud_size**2
-    return T, (data_int, fit_array, fit_func(fit_array, *popt))
+    return T, (data_int, fit_array, fit_func(fit_array, *popt)), '1D'
+
+def TwoDGaussian(data, A, x0, y0, theta, sig_x, sig_y, off):
+    x = data[0]
+    y = data[1]
+    a = np.cos(theta)**2/(2*sig_x**2) + np.sin(theta)**2/(2*sig_y**2)
+    b = -np.sin(2*theta)/(4*sig_x**2) + np.sin(2*theta)/(4*sig_y**2)
+    c = np.sin(theta)**2/(2*sig_x**2) + np.cos(theta)**2/(2*sig_y**2)
+    return (A*np.exp(-(a*(x-x0)**2 + 2*b*(x-x0)*(y-y0) + c*(y-y0)**2)) + off).ravel()
+
+def estimateTemperature2DGaussian(img_array, time_of_flight, pixel_size_at_atoms, atomroi, initial_cloud_size, p0=[0,50,10,500]):
+    m = 87 * const['atomic mass constant'][0]
+    kB = const['Boltzmann constant'][0]
+    x, y, w, h = atomroi
+    roidata = img_array[y:y+h,x:x+w]
+    try:
+        xx,yy = np.meshgrid(np.arange(w),np.arange(h))
+        popt, pcov = curve_fit(TwoDGaussian, (xx,yy), roidata.ravel(), p0=[np.max(roidata),np.argmax(np.mean(roidata,axis=0)),np.argmax(np.mean(roidata,axis=1))] + p0)
+    except:
+        traceback.print_exception(*sys.exc_info())
+        print('fit failed')
+        return 0, ([[]], [[]]), '2D'
+    sigma = max(popt[4], popt[5])*pixel_size_at_atoms
+    print(sigma)
+    T = sigma**2 / time_of_flight**2 * m/kB - initial_cloud_size**2
+    return T, (roidata, TwoDGaussian((xx,yy), *popt).reshape(h,w)), '2D'
+
     
 def getAtomNumber(imgarray, atomspergray, atomroi=None, refroi=None, borderwidth=3):
     ''' Calculate the atomnumber of an image given as a 2D numpy array with 

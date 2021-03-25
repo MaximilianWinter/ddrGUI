@@ -89,6 +89,7 @@ class AtomnumberTemperatureWidget(MatplotImage):
             T = 0
         self.ax.text(0,.4, u"Temperature: {:.2f} µK".format(T*1e6), fontsize=fontsize)
         self.ax.axis("off")
+        self.redraw()
         
     def update_fig(self):
         px = 1/plt.rcParams['figure.dpi']

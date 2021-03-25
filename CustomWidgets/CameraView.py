@@ -43,7 +43,7 @@ class MatplotImageROI(FloatingPanesContainer):
         
     def update_plot(self):
         # make stable for empty plot_data['data']
-        self.im = self.ax_im.imshow(self.plot_data['data'][0], vmin = self.variables['vmin'], vmax = self.variables['vmax'])
+        self.im = self.ax_im.imshow(self.plot_data['data'], vmin = self.variables['vmin'], vmax = self.variables['vmax'])
         self.cbar.remove()
         self.cbar = plt.colorbar(self.im, ax=self.ax_im)
         self.ax_im.set_title(self.plot_data['path'],fontsize=7,pad=12)
