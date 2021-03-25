@@ -16,11 +16,13 @@ todo:
     10. find/fix dragging issue of camview
     11. add try/except for init for each widget; done
     12. resize ROIs automatically
+    13. comment code
 """
 from remi import gui, App, start
 
 from CameraView import CameraView
 from SimplePlotWidget import SimplePlotWidget
+from TwoDPlotWidget import TwoDPlotWidget
 from FloatingPanesContainer import FloatingPanesContainer
 from ProcessingFiles import ProcessingFiles
 from AtomnumberTemperatureWidget import AtomnumberTemperatureWidget
@@ -65,7 +67,10 @@ class CamWebGUI(App):
         add_lineplot = gui.MenuItem('Line Plot', width=100, height=30)
         add_lineplot.onclick.do(self.add_lineplot_pressed)
         
-        add_widget.append([add_lineplot])
+        add_2dplot = gui.MenuItem('2D Plot', width=100, height=30)
+        add_2dplot.onclick.do(self.add_2dplot_pressed)
+        
+        add_widget.append([add_lineplot, add_2dplot])
         
         self.view.append(add_widget)
         
@@ -92,6 +97,12 @@ class CamWebGUI(App):
                 simpleplot = SimplePlotWidget(self, ID)
                 self.view.append(simpleplot.view)
                 self.main_container.add_pane(simpleplot, self.config['Simple Plot'][ID]['x'], self.config['Simple Plot'][ID]['y'], 'Simple Plot ' + str(ID))
+                
+        if '2D Plot' in self.config.keys():
+            for ID in self.config['2D Plot'].keys():
+                twodplot = TwoDPlotWidget(self, ID)
+                self.view.append(twodplot.view)
+                self.main_container.add_pane(twodplot, self.config['2D Plot'][ID]['x'], self.config['2D Plot'][ID]['y'], '2D Plot ' + ID)
             
         return self.main_container
     
@@ -105,6 +116,17 @@ class CamWebGUI(App):
         simpleplot = SimplePlotWidget(self, ID)
         self.view.append(simpleplot.view)
         self.main_container.add_pane(simpleplot, self.config['Simple Plot'][ID]['x'], self.config['Simple Plot'][ID]['y'], 'Simple Plot ' + ID)
+        simpleplot.view_pressed()
+        
+    def add_2dplot_pressed(self, widget):
+        try:
+            ID = str(int(max(self.config['2D Plot'].keys())) + 1)
+        except:
+            ID = '0'
+        twodplot = TwoDPlotWidget(self, ID)
+        self.view.append(twodplot.view)
+        self.main_container.add_pane(twodplot, self.config['2D Plot'][ID]['x'], self.config['2D Plot'][ID]['y'], '2D Plot ' + ID)
+        twodplot.view_pressed()
         
     def start_stop_btn_pressed(self, widget):
         if self.processingfiles.running:
